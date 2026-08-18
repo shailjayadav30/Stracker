@@ -13,18 +13,17 @@ datasource db {
 }
 
 model User {
-  id            String    @id @default(uuid())
-   name          String
-  email         String    @unique
+  id            String     @id @default(uuid())
+  name          String
+  email         String     @unique
   password      String
   image         String?
-  createdAt     DateTime  @default(now())
-
- 
-  emailVerified Boolean   @default(false)
-  updatedAt     DateTime  @updatedAt
+  emailVerified Boolean    @default(false)
+  syllabus      Syllabus[]
   sessions      Session[]
   accounts      Account[]
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
 
   @@map("user")
 }
@@ -75,4 +74,55 @@ model Verification {
 
   @@index([identifier])
   @@map("verification")
+}
+
+model Syllabus {
+  id        String    @id @default(uuid())
+  name      String
+  userId    String
+  user      User      @relation(fields: [userId], references: [id])
+  subjects  Subject[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model Subject {
+  id         String   @id @default(uuid())
+  name       String
+  syllabusId String
+  syllabus   Syllabus @relation(fields: [syllabusId], references: [id])
+  units      Unit[]
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Unit {
+  id        String   @id @default(uuid())
+  name      String
+  subjectId String
+  subject   Subject  @relation(fields: [subjectId], references: [id])
+  topics    Topic[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Topic {
+  id        String      @id
+  name      String
+  unitId    String
+  unit      Unit        @relation(fields: [unitId], references: [id])
+  subTopics SubTopics[]
+  completed Boolean
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+}
+
+model SubTopics {
+  id        String   @id
+  name      String
+  topicId   String
+  topic     Topic    @relation(fields: [topicId], references: [id])
+  completed Boolean
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

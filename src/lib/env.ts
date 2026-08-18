@@ -7,6 +7,7 @@ const envSchema = z.object({
   DATABASE_URL: z.string(),
   BETTER_AUTH_SECRET: z.string(),
   BETTER_AUTH_URL: z.string(),
+  GEMINI_API_KEY:z.string(),
   JWT_SECRET: z.string(),
   ALLOWED_ORIGINS: z.string().default("http://localhost:3000"),
   //   GOOGLE_CLIENT_ID: z.string(),
