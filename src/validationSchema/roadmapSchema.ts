@@ -1,5 +1,20 @@
-import z from "zod"
+import z from "zod";
 
-const RoadmapSchema=z.object({
-    
-})
+export const SyllabusSchema = z.object({
+  subjects: z.array(
+    z.object({
+      name: z.string(),
+      units: z.array(
+        z.object({
+          name: z.string(),
+          topics: z.array(
+            z.object({
+              name: z.string(),
+              subTopics: z.array(z.string()),
+            }),
+          ),
+        }),
+      ),
+    }),
+  ),
+});
