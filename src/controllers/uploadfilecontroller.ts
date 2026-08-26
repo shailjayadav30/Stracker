@@ -25,32 +25,32 @@ export const uploadfile = catchAsync(async (req: Request, res: Response) => {
   const prompt = buildUserPrompt(testText);
   console.log("Final prompt length:", prompt.length);
   const syllabus = await generateStructuredResponse(prompt, SyllabusSchema);
-  const savedSyllabus = await prisma.syllabus.create({
-    data: {
-      name: "addedsyllabus",
-      userId: req.user?.id,
-      subjects: {
-        create: syllabus.subjects.map((subject) => ({
-          name: subject.name,
-          units: {
-            create: subject.units.map((unit) => ({
-              name: unit.name,
-              topics: {
-                create: unit.topics.map((topic) => ({
-                  name: topic.name,
-                  subTopics: {
-                    create: topic.subTopics.map((subTopic) => ({
-                      name: subTopic,
-                    })),
-                  },
-                })),
-              },
-            })),
-          },
-        })),
-      },
-    },
-  });
+  // const savedSyllabus = await prisma.syllabus.create({
+  //   data: {
+  //     name: "addedsyllabus",
+  //     userId: req.user?.id,
+  //     subjects: {
+  //       create: syllabus.subjects.map((subject) => ({
+  //         name: subject.name,
+  //         units: {
+  //           create: subject.units.map((unit) => ({
+  //             name: unit.name,
+  //             topics: {
+  //               create: unit.topics.map((topic) => ({
+  //                 name: topic.name,
+  //                 subTopics: {
+  //                   create: topic.subTopics.map((subTopic) => ({
+  //                     name: subTopic,
+  //                   })),
+  //                 },
+  //               })),
+  //             },
+  //           })),
+  //         },
+  //       })),
+  //     },
+  //   },
+  // });
   res.status(201).json({
     success: true,
 
