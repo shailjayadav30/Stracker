@@ -10,8 +10,8 @@ const envSchema = z.object({
   GEMINI_API_KEY:z.string(),
   JWT_SECRET: z.string(),
   ALLOWED_ORIGINS: z.string().default("http://localhost:3000"),
-  //   GOOGLE_CLIENT_ID: z.string(),
-  //   GOOGLE_CLIENT_SECRET: z.string(),
+    GOOGLE_CLIENT_ID: z.string(),
+    GOOGLE_CLIENT_SECRET: z.string(),
 });
 
 function createEnv(env: NodeJS.ProcessEnv) {
