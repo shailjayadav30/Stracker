@@ -5,6 +5,8 @@ import { requireAuth } from "../middleware/authmiddleware.js";
 
 const router = Router();
 
-router.post("/uploadfile",requireAuth, upload.single("pdffile"), uploadfile);
+router.post("/uploadfile", upload.single("pdffile"), uploadfile);
+// router.post("/uploadfile",requireAuth, upload.single("pdffile"), uploadfile);
+
 
 export default router;
