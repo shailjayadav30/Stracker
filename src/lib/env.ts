@@ -12,7 +12,7 @@ const envSchema = z.object({
   ALLOWED_ORIGINS: z.string().default("http://localhost:3000"),
   GOOGLE_CLIENT_ID: z.string(),
   GOOGLE_CLIENT_SECRET: z.string(),
-  ALLOW_EXPO_GO: z.boolean,
+  ALLOW_EXPO_GO: z.string(),
 });
 
 function createEnv(env: NodeJS.ProcessEnv) {
