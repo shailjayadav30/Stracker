@@ -9,7 +9,7 @@ export const auth = betterAuth({
   plugins: [expo()],
   trustedOrigins: [
     "studyfrontend://",
-    ...(process.env.NODE_ENV === "development"
+    ...(env.ALLOW_EXPO_GO === "true"
       ? [
           "exp://", // Trust any host of the exp:// scheme
           "exp://**", // Trust all Expo URLs (wildcard matching)
@@ -23,13 +23,12 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
   },
+  secret: env.BETTER_AUTH_SECRET,
+  baseURL: env.BETTER_AUTH_URL,
   // socialProviders: {
   //   google: {
   //     clientId: env.GOOGLE_CLIENT_ID ,
   //     clientSecret: env.GOOGLE_CLIENT_SECRET ,
   //   },
   // },
-
-  secret: env.BETTER_AUTH_SECRET,
-  baseURL: env.BETTER_AUTH_URL,
 });

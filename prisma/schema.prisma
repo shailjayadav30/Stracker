@@ -90,7 +90,7 @@ model Subject {
   id         String   @id @default(uuid())
   name       String
   syllabusId String
-  syllabus   Syllabus @relation(fields: [syllabusId], references: [id])
+syllabus   Syllabus @relation(fields: [syllabusId], references: [id])
   units      Unit[]
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
@@ -107,22 +107,22 @@ model Unit {
 }
 
 model Topic {
-  id        String      @id
+  id        String      @id @default(uuid())
   name      String
   unitId    String
   unit      Unit        @relation(fields: [unitId], references: [id])
   subTopics SubTopics[]
-  completed Boolean
+  completed Boolean @default(false)
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
 }
 
 model SubTopics {
-  id        String   @id
+  id        String   @id @default(uuid())
   name      String
   topicId   String
   topic     Topic    @relation(fields: [topicId], references: [id])
-  completed Boolean
+  completed Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
