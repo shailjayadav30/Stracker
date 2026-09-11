@@ -56,6 +56,7 @@ model Account {
   refreshTokenExpiresAt DateTime?
   scope                 String?
   password              String?
+  issuer                String?
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
 
@@ -89,7 +90,7 @@ model Subject {
   id         String   @id @default(uuid())
   name       String
   syllabusId String
-syllabus   Syllabus @relation(fields: [syllabusId], references: [id])
+  syllabus   Syllabus @relation(fields: [syllabusId], references: [id])
   units      Unit[]
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
@@ -111,7 +112,7 @@ model Topic {
   unitId    String
   unit      Unit        @relation(fields: [unitId], references: [id])
   subTopics SubTopics[]
-  completed Boolean @default(false)
+  completed Boolean     @default(false)
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
 }
