@@ -32,7 +32,7 @@ export const uploadfile = catchAsync(async (req: Request, res: Response) => {
   const prompt = buildUserPrompt(testText);
   // console.log("Final prompt length:", prompt.length);
   const syllabus = await generateStructuredResponse(prompt, SyllabusSchema);
-  const savedSyllabus = await prisma.syllabus.create({
+  await prisma.syllabus.create({
     data: {
       name: syllabusName,
       userId: req.user?.id,
