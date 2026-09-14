@@ -373,3 +373,39 @@ export const editSubTopicName = catchAsync(
     res.status(200).json({ message: "SubTopic updated successfully", topic });
   },
 );
+
+export const completeTopic = catchAsync(async (req: Request, res: Response) => {
+  if (!req.user?.id) {
+    throw new AppError("Unauthenticated", 401);
+  }
+  const topicId = Array.isArray(req.params.topicId)
+    ? req.params.topicId[0]
+    : req.params.topicId;
+  if (!topicId) {
+    throw new AppError("Topic Id not found", 400);
+  }
+  const { completed } = req.body;
+  const topicCompleted = await prisma.$transaction(async (tx) => {
+    const topic = await tx.topic.update({
+      where: {
+        id: topicId,
+      },
+      data: {
+        completed,
+      },
+    });
+    await tx.subTopics.updateMany({
+      where: {
+        topicId: topicId,
+      },
+      data: {
+        completed,
+      },
+    });
+    return topic;
+  });
+
+  res
+    .status(200)
+    .json({ message: "Task completed successfully", topic: topicCompleted });
+});

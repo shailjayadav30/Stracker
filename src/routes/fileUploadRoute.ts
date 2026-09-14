@@ -3,6 +3,7 @@ import upload from "../middleware/fileUploadmiddleware.js";
 import { uploadfile } from "../controllers/uploadfilecontroller.js";
 import { requireAuth } from "../middleware/authmiddleware.js";
 import {
+  completeTopic,
   deleteRoadmapById,
   deleteSubjectById,
   deleteSubTopicById,
@@ -32,5 +33,5 @@ router.delete("/subjects/:subjectId", deleteSubjectById);
 router.delete("/units/:unitId", deleteUnitById);
 router.delete("/topics/:topicId", deleteTopicById);
 router.delete("/subTopics/:subtopicId", deleteSubTopicById);
-
+router.patch("/topics/:topicId/complete", completeTopic);
 export default router;
