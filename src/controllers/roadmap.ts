@@ -2,12 +2,16 @@ import type { Request, Response } from "express";
 import catchAsync from "../lib/error/catchAsync.js";
 import AppError from "../lib/error/appError.js";
 import prisma from "../lib/db.js";
+
 export const getAllRoadmap = catchAsync(async (req: Request, res: Response) => {
   if (!req.user?.id) {
     throw new AppError("Unauthorized", 401);
   }
 
   const syllabus = await prisma.syllabus.findMany({
+    where: {
+      userId: req.user.id,
+    },
     include: {
       subjects: {
         include: {
@@ -25,9 +29,7 @@ export const getAllRoadmap = catchAsync(async (req: Request, res: Response) => {
     },
   });
 
-  if (!syllabus) {
-    throw new AppError("Syllabus not found", 400);
-  }
+  
   res.status(200).json({
     message: "Syllabus fetched successfully",
     syllabus,
