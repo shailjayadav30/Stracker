@@ -29,7 +29,6 @@ export const getAllRoadmap = catchAsync(async (req: Request, res: Response) => {
     },
   });
 
-  
   res.status(200).json({
     message: "Syllabus fetched successfully",
     syllabus,
@@ -411,3 +410,49 @@ export const completeTopic = catchAsync(async (req: Request, res: Response) => {
     .status(200)
     .json({ message: "Task completed successfully", topic: topicCompleted });
 });
+
+export const followingRoadmap = catchAsync(
+  async (req: Request, res: Response) => {
+    if (!req.user?.id) {
+      throw new AppError("Unauthorized", 401);
+    }
+    const { isFollowing } = req.body;
+    const syllabusId = Array.isArray(req.params.syllabusId)
+      ? req.params.syllabusId[0]
+      : req.params.syllabusId;
+    if (!syllabusId) {
+      throw new AppError("Roadmap Id not found", 400);
+    }
+    if (typeof isFollowing !== "boolean") {
+      throw new AppError("isFollowing must be a boolean", 400);
+    }
+    console.log("roadmapId:", syllabusId);
+    console.log("userId:", req.user.id);
+    console.log("isFollowing:", isFollowing);
+    const roadmap = await prisma.syllabus.findFirst({
+      where: {
+        id: syllabusId,
+        userId: req.user.id,
+      },
+      select: {
+        id: true,
+      },
+    });
+    if (!roadmap) {
+      throw new AppError("Roadmap not found", 404);
+    }
+    await prisma.syllabus.update({
+      where: {
+        id: roadmap.id,
+      },
+      data: {
+        isFollowing,
+      },
+    });
+    return res.status(200).json({
+      message: isFollowing
+        ? "Roadmap is now being followed"
+        : "Roadmap unfollowed",
+    });
+  },
+);

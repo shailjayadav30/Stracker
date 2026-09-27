@@ -14,6 +14,7 @@ import {
   editSyllabusName,
   editTopicName,
   editUnitName,
+  followingRoadmap,
   getAllRoadmap,
   getRoadmapById,
 } from "../controllers/roadmap.js";
@@ -34,4 +35,10 @@ router.delete("/units/:unitId", requireAuth, deleteUnitById);
 router.delete("/topics/:topicId", requireAuth, deleteTopicById);
 router.delete("/subTopics/:subtopicId", requireAuth, deleteSubTopicById);
 router.patch("/topics/:topicId/complete", requireAuth, completeTopic);
+router.patch(
+  "/syllabus/isfollowing/:syllabusId",
+  requireAuth,
+  followingRoadmap,
+);
+
 export default router;

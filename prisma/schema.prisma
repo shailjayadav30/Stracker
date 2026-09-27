@@ -77,13 +77,14 @@ model Verification {
 }
 
 model Syllabus {
-  id        String    @id @default(uuid())
-  name      String
-  userId    String
-  user      User      @relation(fields: [userId], references: [id])
-  subjects  Subject[]
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  id          String    @id @default(uuid())
+  name        String
+  userId      String
+  isFollowing Boolean   @default(false)
+  user        User      @relation(fields: [userId], references: [id])
+  subjects    Subject[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 }
 
 model Subject {
@@ -100,7 +101,7 @@ model Unit {
   id        String   @id @default(uuid())
   name      String
   subjectId String
-  subject   Subject  @relation(fields: [subjectId], references: [id],onDelete: Cascade)
+  subject   Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
   topics    Topic[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -110,7 +111,7 @@ model Topic {
   id        String      @id @default(uuid())
   name      String
   unitId    String
-  unit      Unit        @relation(fields: [unitId], references: [id],onDelete: Cascade)
+  unit      Unit        @relation(fields: [unitId], references: [id], onDelete: Cascade)
   subTopics SubTopics[]
   completed Boolean     @default(false)
   createdAt DateTime    @default(now())
@@ -121,7 +122,7 @@ model SubTopics {
   id        String   @id @default(uuid())
   name      String
   topicId   String
-  topic     Topic    @relation(fields: [topicId], references: [id],onDelete: Cascade)
+  topic     Topic    @relation(fields: [topicId], references: [id], onDelete: Cascade)
   completed Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
