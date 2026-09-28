@@ -1,77 +1,259 @@
 export const buildUserPrompt = (rawText: string) => `
-You are a syllabus extraction system.
+You are a roadmap extraction system.
 
-Your task is to extract the COMPLETE syllabus from the provided document
-and convert it into the provided structured JSON schema.
+Your task is to extract ONE COMPLETE STUDY ROADMAP from the provided document
+and convert it into the required structured JSON schema.
 
 This is an EXTRACTION task, NOT a summarization task.
 
-STRICT RULES:
+IMPORTANT: The output must represent ONLY ONE SUBJECT/ROADMAP.
 
-1. Read the ENTIRE document from beginning to end.
+========================
+ROADMAP SELECTION RULE
+========================
 
-2. Include EVERY syllabus item present in the document.
+1. If the document contains multiple subjects, papers, courses, or major
+   independent subjects, select ONLY THE FIRST SUBJECT that appears in the
+   document.
 
-3. DO NOT skip, omit, summarize, compress, or combine syllabus items.
+2. Once the first subject/roadmap is identified, extract only the content
+   belonging to that subject.
 
-4. Preserve the hierarchy and relationships present in the original document.
+3. Completely ignore all other subjects, papers, courses, or independent
+   subjects that appear after the first one.
 
-5. Include every:
-   - subject
-   - unit
-   - section
-   - module
-   - chapter
-   - topic
-   - subtopic
-   - and any other meaningful syllabus item present in the document.
+4. Do NOT combine multiple subjects into a single roadmap.
 
-6. Do NOT invent, infer, or add any topic, subtopic, unit, or information
-   that is not present in the document.
+5. If the document contains only one subject, extract that complete subject.
 
-7. The document is the ONLY source of syllabus information.
-   Do not use your own knowledge to expand the syllabus.
+6. The selected subject must be extracted completely from its beginning to
+   its end, including all of its units, topics, and subtopics.
 
-8. You MAY correct obvious spelling or typographical mistakes in the
-   extracted text, but the meaning and content MUST remain unchanged.
+========================
+ROADMAP NAME RULE
+========================
 
-9. Do NOT add explanations, descriptions, examples, definitions,
-   summaries, or additional information.
+7. The JSON must contain a "name" field for the roadmap.
 
-10. Do NOT merge two different syllabus items into one item.
+8. If the selected subject has an explicit name/title in the document,
+   use that name as the roadmap name.
 
-11. If two topics are separately listed in the document, they MUST remain
-    separate in the output.
+9. If the document does not contain a clear subject/roadmap name, generate
+   a short and meaningful roadmap name based ONLY on the content of the
+   selected subject.
 
-12. Preserve the original wording as much as possible, except for
-    obvious spelling or typographical corrections.
+10. Do NOT invent a subject that is unrelated to the document.
 
-13. If the document contains headings or labels such as:
-    Paper, Unit, Module, Section, Chapter, Topic, etc., preserve their
-    hierarchy in the output according to the provided JSON schema.
+11. The generated roadmap name must be concise and suitable for displaying
+    as the title of a study roadmap.
 
-14. If a section contains multiple topics, include ALL of those topics.
+========================
+EXTRACTION RULES
+========================
 
-15. If a topic contains multiple subtopics, include ALL of those subtopics.
+12. Read the provided document carefully from beginning to end.
 
-16. Do NOT stop early. Continue processing until the END of the document.
+13. Include EVERY roadmap item belonging to the selected subject.
 
-17. The final response must contain ONLY the JSON structure required by
-    the provided schema.
+14. Do NOT skip, omit, summarize, compress, combine, or merge roadmap items.
 
-MOST IMPORTANT REQUIREMENT:
+15. Preserve the hierarchy and relationships present in the original
+    document.
 
-Every syllabus item present in the source document MUST appear in the
-output.
+16. Extract the hierarchy into:
 
-Completeness is more important than brevity.
+    Roadmap
+      └── Units
+            └── Topics
+                  └── SubTopics
 
-Before returning the final JSON, internally verify that you have not
-omitted any syllabus item from the document.
+17. A Unit represents a meaningful unit, module, section, chapter, paper
+    section, or equivalent organizational level in the document.
 
---- START OF SYLLABUS DOCUMENT ---
+18. A Topic represents an individual study topic inside a unit.
+
+19. A SubTopic represents an individual smaller concept/item explicitly
+    listed under a topic.
+
+20. Preserve the original wording as much as possible.
+
+21. You may correct obvious spelling or typographical mistakes, but do not
+    change the meaning or content.
+
+========================
+TOPIC AND SUBTOPIC SEPARATION
+========================
+
+22. EVERY topic must be a separate item in the "topics" array.
+
+23. NEVER combine multiple topics into one topic.
+
+24. If the document lists:
+
+    Topic A, Topic B, Topic C
+
+    the output MUST contain:
+
+    "topics": [
+      { "name": "Topic A", ... },
+      { "name": "Topic B", ... },
+      { "name": "Topic C", ... }
+    ]
+
+25. NEVER treat commas as proof that multiple items should be combined.
+
+26. If a line contains multiple separately listed concepts separated by
+    commas, semicolons, bullets, numbering, line breaks, or similar
+    delimiters, identify each distinct study item and store each one as a
+    separate topic or subtopic according to the document hierarchy.
+
+27. NEVER create comma-separated lists inside a single "name" field when
+    those comma-separated items represent separate study concepts.
+
+28. EVERY subtopic must be a separate string in the "subTopics" array.
+
+29. For example, if the document contains:
+
+    "Variables, Data Types, Operators, Expressions"
+
+    and these are individual study items, output them separately:
+
+    "subTopics": [
+      "Variables",
+      "Data Types",
+      "Operators",
+      "Expressions"
+    ]
+
+30. Do NOT output:
+
+    "subTopics": [
+      "Variables, Data Types, Operators, Expressions"
+    ]
+
+31. If a topic has multiple subtopics, ALL of them must be extracted
+    individually.
+
+32. If a topic has no explicitly listed subtopics, return an empty array:
+
+    "subTopics": []
+
+33. Do NOT invent subtopics for a topic that does not contain any.
+
+========================
+COMPLETENESS RULES
+========================
+
+34. Include EVERY unit belonging to the selected subject.
+
+35. Include EVERY topic belonging to every extracted unit.
+
+36. Include EVERY explicitly listed subtopic belonging to every topic.
+
+37. Do NOT stop early.
+
+38. Continue processing until the END of the selected subject.
+
+39. Do NOT use your own knowledge to expand, explain, or complete the
+    syllabus.
+
+40. The document is the ONLY source of roadmap information.
+
+41. Do NOT add explanations, descriptions, examples, definitions,
+    summaries, prerequisites, or additional information.
+
+42. Do NOT merge two different roadmap items into one item.
+
+43. If two topics are separately listed in the document, they MUST remain
+    separate.
+
+44. If two subtopics are separately listed in the document, they MUST remain
+    separate.
+
+========================
+HIERARCHY RULES
+========================
+
+45. Preserve headings and labels such as:
+
+    Unit
+    Module
+    Section
+    Chapter
+    Topic
+    Subtopic
+    Paper
+
+    according to their actual hierarchy in the selected subject.
+
+46. Do not create unnecessary hierarchy levels that are not supported by
+    the document.
+
+47. If the document uses a different label for a grouping, map it to the
+    closest appropriate level in:
+
+    Unit → Topic → SubTopic
+
+48. Keep every study item under the correct parent unit/topic.
+
+========================
+OUTPUT FORMAT
+========================
+
+Return ONLY valid JSON matching this exact structure:
+
+{
+  "name": "Roadmap name",
+  "units": [
+    {
+      "name": "Unit name",
+      "topics": [
+        {
+          "name": "Topic name",
+          "subTopics": [
+            "Subtopic 1",
+            "Subtopic 2"
+          ]
+        }
+      ]
+    }
+  ]
+}
+
+Do NOT return Markdown.
+
+Do NOT return code fences.
+
+Do NOT return explanations.
+
+Do NOT return comments.
+
+Do NOT return any text before or after the JSON.
+
+========================
+FINAL VERIFICATION
+========================
+
+Before returning the JSON, internally verify:
+
+- Only the FIRST subject/major subject was extracted.
+- Other subjects were excluded.
+- The roadmap has a valid name.
+- Every unit from the selected subject is included.
+- Every topic is individually separated.
+- Every subtopic is individually separated.
+- No comma-separated study items were incorrectly merged.
+- No roadmap item was invented.
+- No roadmap item was omitted.
+- The hierarchy is preserved.
+- The final response is valid JSON matching the required schema.
+
+Completeness and correct separation of study items are more important than
+brevity.
+
+--- START OF ROADMAP DOCUMENT ---
 
 ${rawText}
 
---- END OF SYLLABUS DOCUMENT ---
+--- END OF ROADMAP DOCUMENT ---
 `;

@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import { parsePdf } from "../lib/parsePdf.js";
-import { SyllabusSchema } from "../validationSchema/roadmapSchema.js";
+import { RoadmapSchema } from "../validationSchema/roadmapSchema.js";
 import AppError from "../lib/error/appError.js";
 import catchAsync from "../lib/error/catchAsync.js";
 import { generateStructuredResponse } from "../lib/llmRetry.js";
@@ -16,12 +16,18 @@ export const uploadfile = catchAsync(async (req: Request, res: Response) => {
   if (req.file.mimetype !== "application/pdf") {
     throw new AppError("Uploaded file must be a PDF", 400);
   }
-  const syllabusName = req.body?.name?.trim();
-  if (!syllabusName) {
-    throw new AppError("Syllabus name is required", 400);
-  }
+  // const roadmapName = req.body?.name?.trim();
+  // if (!roadmapName) {
+  //   throw new AppError("Roadmap name is required", 400);
+  // }
   const pdfBuffer = req.file.buffer;
-
+  console.log("========== PDF DEBUG ==========");
+  console.log("Filename:", req.file.originalname);
+  console.log("Mimetype:", req.file.mimetype);
+  console.log("Size:", req.file.size);
+  console.log("Buffer length:", req.file.buffer.length);
+  console.log("PDF header:", req.file.buffer.subarray(0, 10).toString());
+  console.log("================================");
   const rawText = await parsePdf(pdfBuffer);
 
   if (!rawText || rawText.trim().length === 0) {
@@ -31,25 +37,20 @@ export const uploadfile = catchAsync(async (req: Request, res: Response) => {
 
   const prompt = buildUserPrompt(testText);
   // console.log("Final prompt length:", prompt.length);
-  const syllabus = await generateStructuredResponse(prompt, SyllabusSchema);
-  await prisma.syllabus.create({
+  const roadmapData = await generateStructuredResponse(prompt, RoadmapSchema);
+  const createdRoadmap = await prisma.roadmap.create({
     data: {
-      name: syllabusName,
+      name: roadmapData.name,
       userId: req.user?.id,
-      subjects: {
-        create: syllabus.subjects.map((subject) => ({
-          name: subject.name,
-          units: {
-            create: subject.units.map((unit) => ({
-              name: unit.name,
-              topics: {
-                create: unit.topics.map((topic) => ({
-                  name: topic.name,
-                  subTopics: {
-                    create: topic.subTopics.map((subTopic) => ({
-                      name: subTopic,
-                    })),
-                  },
+      units: {
+        create: roadmapData.units.map((unit) => ({
+          name: unit.name,
+          topics: {
+            create: unit.topics.map((topic) => ({
+              name: topic.name,
+              subTopics: {
+                create: topic.subTopics.map((subTopic) => ({
+                  name: subTopic,
                 })),
               },
             })),
@@ -61,6 +62,6 @@ export const uploadfile = catchAsync(async (req: Request, res: Response) => {
   res.status(201).json({
     success: true,
 
-    analysis: syllabus,
+    roadmap: createdRoadmap,
   });
 });

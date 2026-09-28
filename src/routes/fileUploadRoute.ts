@@ -5,13 +5,11 @@ import { requireAuth } from "../middleware/authmiddleware.js";
 import {
   completeTopic,
   deleteRoadmapById,
-  deleteSubjectById,
   deleteSubTopicById,
   deleteTopicById,
   deleteUnitById,
-  editSubjectName,
   editSubTopicName,
-  editSyllabusName,
+  editRoadmapName,
   editTopicName,
   editUnitName,
   followingRoadmap,
@@ -22,21 +20,19 @@ import {
 const router = Router();
 
 router.post("/uploadfile", requireAuth, upload.single("pdffile"), uploadfile);
-router.get("/syllabus", requireAuth, getAllRoadmap);
-router.get("/syllabus/:syllabusId", requireAuth, getRoadmapById);
-router.patch("/syllabus/:syllabusId", requireAuth, editSyllabusName);
-router.patch("/subjects/:subjectId", requireAuth, editSubjectName);
+router.get("/roadmap", requireAuth, getAllRoadmap);
+router.get("/roadmap/:roadmapId", requireAuth, getRoadmapById);
+router.patch("/roadmap/:roadmapId", requireAuth, editRoadmapName);
 router.patch("/units/:unitId", requireAuth, editUnitName);
 router.patch("/topics/:topicId", requireAuth, editTopicName);
 router.patch("/subTopics/:subtopicId", requireAuth, editSubTopicName);
-router.delete("/syllabus/:syllabusId", requireAuth, deleteRoadmapById);
-router.delete("/subjects/:subjectId", requireAuth, deleteSubjectById);
+router.delete("/roadmap/:roadmapId", requireAuth, deleteRoadmapById);
 router.delete("/units/:unitId", requireAuth, deleteUnitById);
 router.delete("/topics/:topicId", requireAuth, deleteTopicById);
 router.delete("/subTopics/:subtopicId", requireAuth, deleteSubTopicById);
 router.patch("/topics/:topicId/complete", requireAuth, completeTopic);
 router.patch(
-  "/syllabus/isfollowing/:syllabusId",
+  "/roadmap/isfollowing/:roadmapId",
   requireAuth,
   followingRoadmap,
 );

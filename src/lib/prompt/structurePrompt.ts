@@ -1,12 +1,12 @@
 // export const buildStructurePrompt = (text: string) => `
 // You are a document structure analysis system.
 
-// Analyze the syllabus document below.
+// Analyze the roadmap document below.
 
 // Your task is ONLY to identify the hierarchical structure
-// of the syllabus.
+// of the roadmap.
 
-// Do NOT summarize the syllabus.
+// Do NOT summarize the roadmap.
 // Do NOT add information that is not present.
 // Do NOT invent subjects, units, topics, or subtopics.
 

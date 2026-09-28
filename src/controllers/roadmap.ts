@@ -8,20 +8,16 @@ export const getAllRoadmap = catchAsync(async (req: Request, res: Response) => {
     throw new AppError("Unauthorized", 401);
   }
 
-  const syllabus = await prisma.syllabus.findMany({
+  const roadmap = await prisma.roadmap.findMany({
     where: {
       userId: req.user.id,
     },
     include: {
-      subjects: {
+      units: {
         include: {
-          units: {
+          topics: {
             include: {
-              topics: {
-                include: {
-                  subTopics: true,
-                },
-              },
+              subTopics: true,
             },
           },
         },
@@ -30,8 +26,8 @@ export const getAllRoadmap = catchAsync(async (req: Request, res: Response) => {
   });
 
   res.status(200).json({
-    message: "Syllabus fetched successfully",
-    syllabus,
+    message: "Roadmap fetched successfully",
+    roadmap,
   });
 });
 
@@ -41,28 +37,24 @@ export const getRoadmapById = catchAsync(
       throw new AppError("Unauthorized", 401);
     }
 
-    const syllabusId = Array.isArray(req.params.syllabusId)
-      ? req.params.syllabusId[0]
-      : req.params.syllabusId;
+    const roadmapId = Array.isArray(req.params.roadmapId)
+      ? req.params.roadmapId[0]
+      : req.params.roadmapId;
 
-    if (!syllabusId) {
-      throw new AppError("Syllabus id missing ", 404);
+    if (!roadmapId) {
+      throw new AppError("Roadmap id missing ", 404);
     }
 
-    const syllabus = await prisma.syllabus.findUnique({
+    const roadmap = await prisma.roadmap.findUnique({
       where: {
-        id: syllabusId,
+        id: roadmapId,
       },
       include: {
-        subjects: {
+        units: {
           include: {
-            units: {
+            topics: {
               include: {
-                topics: {
-                  include: {
-                    subTopics: true,
-                  },
-                },
+                subTopics: true,
               },
             },
           },
@@ -71,8 +63,8 @@ export const getRoadmapById = catchAsync(
     });
 
     res.status(200).json({
-      message: "Syllabus fetched successfully by id ",
-      syllabus,
+      message: "Roadmap fetched successfully by id ",
+      roadmap,
     });
   },
 );
@@ -82,61 +74,29 @@ export const deleteRoadmapById = catchAsync(
     if (!req.user?.id) {
       throw new AppError("Unauthorized", 401);
     }
-    const syllabusId = Array.isArray(req.params.syllabusId)
-      ? req.params.syllabusId[0]
-      : req.params.syllabusId;
-    if (!syllabusId) {
-      throw new AppError("Syllabus id missing", 404);
+    const roadmapId = Array.isArray(req.params.roadmapId)
+      ? req.params.roadmapId[0]
+      : req.params.roadmapId;
+    if (!roadmapId) {
+      throw new AppError("Roadmap id missing", 404);
     }
-    const syllabus = await prisma.syllabus.findUnique({
+    const roadmap = await prisma.roadmap.findUnique({
       where: {
-        id: syllabusId,
+        id: roadmapId,
       },
     });
 
-    if (!syllabus) {
-      throw new AppError("Syllabus not found", 404);
+    if (!roadmap) {
+      throw new AppError("Roadmap not found", 404);
     }
-    const deletedsyllabus = await prisma.syllabus.delete({
+    const deletedroadmap = await prisma.roadmap.delete({
       where: {
-        id: syllabusId,
+        id: roadmapId,
       },
     });
     res.status(200).json({
-      message: "Syllabus deleted successfully by id ",
-      deletedsyllabus,
-    });
-  },
-);
-
-export const deleteSubjectById = catchAsync(
-  async (req: Request, res: Response) => {
-    if (!req.user?.id) {
-      throw new AppError("Unauthorized", 401);
-    }
-    const subjectId = Array.isArray(req.params.subjectId)
-      ? req.params.subjectId[0]
-      : req.params.subjectId;
-    if (!subjectId) {
-      throw new AppError("Subject id missing", 404);
-    }
-    const subject = await prisma.subject.findUnique({
-      where: {
-        id: subjectId,
-      },
-    });
-
-    if (!subject) {
-      throw new AppError("Subject not found", 404);
-    }
-    const deletedsubject = await prisma.subject.delete({
-      where: {
-        id: subjectId,
-      },
-    });
-    res.status(200).json({
-      message: "Subject deleted successfully by id ",
-      deletedsubject,
+      message: "Roadmap deleted successfully by id ",
+      deletedroadmap,
     });
   },
 );
@@ -216,7 +176,7 @@ export const deleteSubTopicById = catchAsync(
     if (!subTopicId) {
       throw new AppError("SubTopic id missing", 404);
     }
-    const subTopic = await prisma.subTopics.findUnique({
+    const subTopic = await prisma.subTopic.findUnique({
       where: {
         id: subTopicId,
       },
@@ -225,73 +185,43 @@ export const deleteSubTopicById = catchAsync(
     if (!subTopic) {
       throw new AppError("SubTopic not found", 404);
     }
-    const deletedSubTopic = await prisma.subTopics.delete({
+    const deletedSubTopic = await prisma.subTopic.delete({
       where: {
         id: subTopicId,
       },
     });
     res.status(200).json({
-      message: "Syllabus deleted successfully by id ",
+      message: "Roadmap deleted successfully by id ",
       deletedSubTopic,
     });
   },
 );
 
-export const editSyllabusName = catchAsync(
+export const editRoadmapName = catchAsync(
   async (req: Request, res: Response) => {
     if (!req.user?.id) {
       throw new AppError("unAuthenticated", 401);
     }
-    const syllabusId = Array.isArray(req.params.syllabusId)
-      ? req.params.syllabusId[0]
-      : req.params.syllabusId;
-    if (!syllabusId) {
-      throw new AppError("Syllabus id not found", 400);
+    const roadmapId = Array.isArray(req.params.roadmapId)
+      ? req.params.roadmapId[0]
+      : req.params.roadmapId;
+    if (!roadmapId) {
+      throw new AppError("Roadmap id not found", 400);
     }
 
     const { name } = req.body;
     if (!name?.trim()) {
-      throw new AppError("Syllabus name is required", 400);
+      throw new AppError("Roadmap name is required", 400);
     }
-    const syllabus = await prisma.syllabus.update({
+    const roadmap = await prisma.roadmap.update({
       where: {
-        id: syllabusId,
+        id: roadmapId,
       },
       data: {
         name: name.trim(),
       },
     });
-    res
-      .status(200)
-      .json({ message: "Syllabus updated successfully", syllabus });
-  },
-);
-
-export const editSubjectName = catchAsync(
-  async (req: Request, res: Response) => {
-    if (!req.user?.id) {
-      throw new AppError("unAuthenticated", 401);
-    }
-    const subjectId = Array.isArray(req.params.subjectId)
-      ? req.params.subjectId[0]
-      : req.params.subjectId;
-    if (!subjectId) {
-      throw new AppError("subject id not found", 400);
-    }
-
-    const { name } = req.body;
-    if (!name?.trim()) {
-      throw new AppError("Subject name is required", 400);
-    }
-    const subject = await prisma.subject.update({
-      where: {
-        id: subjectId,
-      },
-      data: {
-        name: name.trim(),
-      },
-    });
-    res.status(200).json({ message: "Subject  updated successfully", subject });
+    res.status(200).json({ message: "Roadmap updated successfully", roadmap });
   },
 );
 
@@ -363,7 +293,7 @@ export const editSubTopicName = catchAsync(
     if (!name?.trim()) {
       throw new AppError("SubTopic name is required", 400);
     }
-    const topic = await prisma.subTopics.update({
+    const topic = await prisma.subTopic.update({
       where: {
         id: subTopicId,
       },
@@ -395,7 +325,7 @@ export const completeTopic = catchAsync(async (req: Request, res: Response) => {
         completed,
       },
     });
-    await tx.subTopics.updateMany({
+    await tx.subTopic.updateMany({
       where: {
         topicId: topicId,
       },
@@ -417,21 +347,18 @@ export const followingRoadmap = catchAsync(
       throw new AppError("Unauthorized", 401);
     }
     const { isFollowing } = req.body;
-    const syllabusId = Array.isArray(req.params.syllabusId)
-      ? req.params.syllabusId[0]
-      : req.params.syllabusId;
-    if (!syllabusId) {
+    const roadmapId = Array.isArray(req.params.roadmapId)
+      ? req.params.roadmapId[0]
+      : req.params.roadmapId;
+    if (!roadmapId) {
       throw new AppError("Roadmap Id not found", 400);
     }
     if (typeof isFollowing !== "boolean") {
       throw new AppError("isFollowing must be a boolean", 400);
     }
-    console.log("roadmapId:", syllabusId);
-    console.log("userId:", req.user.id);
-    console.log("isFollowing:", isFollowing);
-    const roadmap = await prisma.syllabus.findFirst({
+    const roadmap = await prisma.roadmap.findFirst({
       where: {
-        id: syllabusId,
+        id: roadmapId,
         userId: req.user.id,
       },
       select: {
@@ -441,7 +368,7 @@ export const followingRoadmap = catchAsync(
     if (!roadmap) {
       throw new AppError("Roadmap not found", 404);
     }
-    await prisma.syllabus.update({
+    await prisma.roadmap.update({
       where: {
         id: roadmap.id,
       },
