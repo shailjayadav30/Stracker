@@ -52,10 +52,12 @@ export const getRoadmapById = catchAsync(
       },
       include: {
         units: {
+          orderBy: { createdAt: "asc" },
           include: {
             topics: {
+              orderBy: { createdAt: "asc" },
               include: {
-                subTopics: true,
+                subTopics: { orderBy: { createdAt: "asc" } },
               },
             },
           },
