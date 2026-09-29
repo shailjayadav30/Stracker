@@ -10,6 +10,9 @@ export async function generateStructuredResponse<T>(
 
   try {
     const response = await llmCall(prompt, schema);
+    console.log("========== RAW LLM RESPONSE ==========");
+    console.log(response);
+    console.log("======================================");
     if (!response) {
       throw new AppError("LLM returned an empty response", 502);
     }

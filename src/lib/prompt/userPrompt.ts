@@ -257,3 +257,43 @@ ${rawText}
 
 --- END OF ROADMAP DOCUMENT ---
 `;
+
+
+
+// export const buildUserPrompt = (rawText: string) => `
+// Extract the study syllabus from the document below.
+
+// Return ONLY valid JSON in exactly this structure:
+
+// {
+//   "name": "string",
+//   "units": [
+//     {
+//       "name": "string",
+//       "topics": [
+//         {
+//           "name": "string",
+//           "subTopics": ["string"]
+//         }
+//       ]
+//     }
+//   ]
+// }
+
+// Rules:
+
+// - Extract only the first subject found in the document.
+// - Include all units belonging to that subject.
+// - Include all topics under each unit.
+// - Include all explicitly listed subtopics.
+// - Do not invent information.
+// - If a topic has no subtopics, use an empty array.
+// - Keep the original wording as much as possible.
+// - Do not summarize.
+// - Do not return Markdown.
+// - Do not return explanations.
+
+// DOCUMENT:
+
+// ${rawText}
+// `;
