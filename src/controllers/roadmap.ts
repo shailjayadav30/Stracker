@@ -383,3 +383,37 @@ export const followingRoadmap = catchAsync(
     });
   },
 );
+
+export const getFollowingRoadMaps = catchAsync(
+  async (req: Request, res: Response) => {
+    if (!req.user?.id) {
+      throw new AppError("Unauthorized", 401);
+    }
+
+    const roadmaps = await prisma.roadmap.findMany({
+      where: {
+        userId: req.user.id,
+        isFollowing: true,
+      },
+      include: {
+        units: {
+          include: {
+            topics: {
+              include: {
+                subTopics: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    res.status(200).json({
+      message:
+        roadmaps.length > 0
+          ? "Following roadmaps retrieved successfully"
+          : "You are not following any roadmap",
+      roadmaps,
+    });
+  },
+);

@@ -15,12 +15,14 @@ import {
   followingRoadmap,
   getAllRoadmap,
   getRoadmapById,
+  getFollowingRoadMaps,
 } from "../controllers/roadmap.js";
 
 const router = Router();
 
 router.post("/uploadfile", requireAuth, upload.single("pdffile"), uploadfile);
 router.get("/roadmap", requireAuth, getAllRoadmap);
+router.get("/roadmap/isfollowing", requireAuth, getFollowingRoadMaps);
 router.get("/roadmap/:roadmapId", requireAuth, getRoadmapById);
 router.patch("/roadmap/:roadmapId", requireAuth, editRoadmapName);
 router.patch("/units/:unitId", requireAuth, editUnitName);
@@ -31,10 +33,6 @@ router.delete("/units/:unitId", requireAuth, deleteUnitById);
 router.delete("/topics/:topicId", requireAuth, deleteTopicById);
 router.delete("/subTopics/:subtopicId", requireAuth, deleteSubTopicById);
 router.patch("/topics/:topicId/complete", requireAuth, completeTopic);
-router.patch(
-  "/roadmap/isfollowing/:roadmapId",
-  requireAuth,
-  followingRoadmap,
-);
+router.patch("/roadmap/isfollowing/:roadmapId", requireAuth, followingRoadmap);
 
 export default router;
