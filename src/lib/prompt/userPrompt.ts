@@ -1,206 +1,187 @@
 export const buildUserPrompt = (rawText: string) => `
-You are a roadmap extraction system.
+You are a syllabus extraction system for a study-planner app.
 
-Your task is to extract ONE COMPLETE STUDY ROADMAP from the provided document
-and convert it into the required structured JSON schema.
+The app lets a student study ONE SUBTOPIC AT A TIME, so every subtopic must be
+one small, self-contained, studyable concept. Break the syllabus into the
+smallest studyable pieces, using ONLY what the document says.
 
-This is an EXTRACTION task, NOT a summarization task.
-
-IMPORTANT: The output must represent ONLY ONE SUBJECT/ROADMAP.
-
-========================
-ROADMAP SELECTION RULE
-========================
-
-1. If the document contains multiple subjects, papers, courses, or major
-   independent subjects, select ONLY THE FIRST SUBJECT that appears in the
-   document.
-
-2. Once the first subject/roadmap is identified, extract only the content
-   belonging to that subject.
-
-3. Completely ignore all other subjects, papers, courses, or independent
-   subjects that appear after the first one.
-
-4. Do NOT combine multiple subjects into a single roadmap.
-
-5. If the document contains only one subject, extract that complete subject.
-
-6. The selected subject must be extracted completely from its beginning to
-   its end, including all of its units, topics, and subtopics.
+The document can be any kind of syllabus: school board (e.g. Class 9-12),
+college/university semester, competitive exam (JEE, NEET, SSC, banking, GATE,
+CAT, etc.), civil services (UPSC, state PSC), professional courses (CA, CS,
+law, medical), or any other curriculum. It can be in any language.
 
 ========================
-ROADMAP NAME RULE
+1. WHICH SUBJECT TO EXTRACT
 ========================
 
-7. The JSON must contain a "name" field for the roadmap.
-
-8. If the selected subject has an explicit name/title in the document,
-   use that name as the roadmap name.
-
-9. If the document does not contain a clear subject/roadmap name, generate
-   a short and meaningful roadmap name based ONLY on the content of the
-   selected subject.
-
-10. Do NOT invent a subject that is unrelated to the document.
-
-11. The generated roadmap name must be concise and suitable for displaying
-    as the title of a study roadmap.
+- Extract ONLY the FIRST subject/paper/course that appears, from its start to
+  its end. Ignore all later subjects/papers. Never combine subjects.
+- If the document is one subject, extract all of it.
+- "name" = the subject's explicit title (e.g. "Physics", "General Studies
+  Paper I", "Quantitative Aptitude"). If none exists, write a short title
+  based only on the content.
 
 ========================
-EXTRACTION RULES
+2. IGNORE NON-SYLLABUS TEXT
 ========================
 
-12. Read the provided document carefully from beginning to end.
-
-13. Include EVERY roadmap item belonging to the selected subject.
-
-14. Do NOT skip, omit, summarize, compress, combine, or merge roadmap items.
-
-15. Preserve the hierarchy and relationships present in the original
-    document.
-
-16. Extract the hierarchy into:
-
-    Roadmap
-      └── Units
-            └── Topics
-                  └── SubTopics
-
-17. A Unit represents a meaningful unit, module, section, chapter, paper
-    section, or equivalent organizational level in the document.
-
-18. A Topic represents an individual study topic inside a unit.
-
-19. A SubTopic represents an individual smaller concept/item explicitly
-    listed under a topic.
-
-20. Preserve the original wording as much as possible.
-
-21. You may correct obvious spelling or typographical mistakes, but do not
-    change the meaning or content.
+Do not extract these as roadmap items:
+- Page numbers, headers, footers, watermarks, "-- 1 of 3 --" style markers
+- Exam pattern, marking scheme, weightage, duration, instructions
+- Reference books, textbooks, recommended reading, practical lists, lab
+  manuals, credits, hours, course codes, prerequisites, outcomes
+Extract only the actual list of things to be studied.
 
 ========================
-TOPIC AND SUBTOPIC SEPARATION
+3. HIERARCHY MAPPING
 ========================
 
-22. EVERY topic must be a separate item in the "topics" array.
+Roadmap
+  Unit      = the largest grouping that contains study content: unit, module,
+              chapter, section, part, block, or paper section
+  Topic     = one item listed under a unit: a bullet, numbered point, line, or
+              sub-heading
+  SubTopic  = one single concept inside a topic
 
-23. NEVER combine multiple topics into one topic.
-
-24. If the document lists:
-
-    Topic A, Topic B, Topic C
-
-    the output MUST contain:
-
-    "topics": [
-      { "name": "Topic A", ... },
-      { "name": "Topic B", ... },
-      { "name": "Topic C", ... }
-    ]
-
-25. NEVER treat commas as proof that multiple items should be combined.
-
-26. If a line contains multiple separately listed concepts separated by
-    commas, semicolons, bullets, numbering, line breaks, or similar
-    delimiters, identify each distinct study item and store each one as a
-    separate topic or subtopic according to the document hierarchy.
-
-27. NEVER create comma-separated lists inside a single "name" field when
-    those comma-separated items represent separate study concepts.
-
-28. EVERY subtopic must be a separate string in the "subTopics" array.
-
-29. For example, if the document contains:
-
-    "Variables, Data Types, Operators, Expressions"
-
-    and these are individual study items, output them separately:
-
-    "subTopics": [
-      "Variables",
-      "Data Types",
-      "Operators",
-      "Expressions"
-    ]
-
-30. Do NOT output:
-
-    "subTopics": [
-      "Variables, Data Types, Operators, Expressions"
-    ]
-
-31. If a topic has multiple subtopics, ALL of them must be extracted
-    individually.
-
-32. If a topic has no explicitly listed subtopics, return an empty array:
-
-    "subTopics": []
-
-33. Do NOT invent subtopics for a topic that does not contain any.
+Rules for different layouts:
+- Document has more than 3 levels (e.g. Section > Chapter > Topic > Concept):
+  use the top level(s) as Unit, the item level as Topic, and the deepest
+  concepts as SubTopics. Merge extra middle levels upward (e.g. put
+  "Section A - Chapter 2" into the unit name) so nothing is lost.
+- Document is a flat list with no grouping (e.g. a list of chapters or
+  topics only): use ONE unit named after the subject, and each listed item is
+  a Topic.
+- A unit with only one line under it: that line is still a Topic.
+- Two-level document (heading + comma-separated concepts): heading = Topic,
+  concepts = SubTopics, placed under one unit.
+- Tables: read each row as one item in the correct parent.
 
 ========================
-COMPLETENESS RULES
+4. HOW TO SPLIT A LINE INTO TOPIC + SUBTOPICS
 ========================
 
-34. Include EVERY unit belonging to the selected subject.
+Syllabus lines often pack many concepts into one sentence. Split them.
 
-35. Include EVERY topic belonging to every extracted unit.
+a) Topic name = a short label (2-8 words).
+   - If the line has a lead-in before a colon or dash
+     ("Recording transactions: ..."), use that lead-in.
+   - If the line is short and names one concept, use the line itself.
+   - Otherwise build a short label using only words from the line.
+   - Never use a long enumerated sentence as a topic name.
 
-36. Include EVERY explicitly listed subtopic belonging to every topic.
+b) SubTopics = split the rest of the line at commas, semicolons, dashes,
+   numbered/bulleted items, and "and"/"or" when they join SEPARATE concepts.
+   Each piece is its own string in "subTopics".
 
-37. Do NOT stop early.
+c) Do NOT split names that are one inseparable concept. Examples that stay
+   whole: "Profit and Loss", "Simple and Compound Interest", "Acids, Bases
+   and Salts" (when it is a chapter name), "Right to Equality", "Laws of
+   Motion", "Sine and Cosine rules".
+   Split only when the parts can be studied independently.
 
-38. Continue processing until the END of the selected subject.
+d) Parentheses and "including/such as/like": treat the items inside as
+   subtopics of the item before them.
+   "Fundamental Rights (Articles 12-35, DPSP, Fundamental Duties)" becomes
+   Topic "Fundamental Rights", subtopics: "Articles 12-35", "DPSP",
+   "Fundamental Duties".
+   Keep short qualifiers that belong to one concept
+   (e.g. "Interference (Young's double slit)" stays one subtopic).
 
-39. Do NOT use your own knowledge to expand, explain, or complete the
-    syllabus.
+e) Make every subtopic self-contained. When items share a noun or verb,
+   repeat it so each stands alone.
+   "Meaning, basis and technique of inventory valuation" becomes
+   "Meaning of inventory valuation", "Basis of inventory valuation",
+   "Technique of inventory valuation".
 
-40. The document is the ONLY source of roadmap information.
+f) A subtopic is ONE concept: no comma-separated list, no long sentence. If a
+   subtopic still holds several concepts, split it again.
 
-41. Do NOT add explanations, descriptions, examples, definitions,
-    summaries, prerequisites, or additional information.
+g) Keep the original wording and language. Add only the minimum words needed
+   for (e). Fix obvious typos and OCR errors only. Never translate.
+   Do not explain, define, or add anything not in the text.
 
-42. Do NOT merge two different roadmap items into one item.
+h) If a line is one concept with nothing to split, make it a Topic with
+   "subTopics": [].
 
-43. If two topics are separately listed in the document, they MUST remain
-    separate.
-
-44. If two subtopics are separately listed in the document, they MUST remain
-    separate.
-
-========================
-HIERARCHY RULES
-========================
-
-45. Preserve headings and labels such as:
-
-    Unit
-    Module
-    Section
-    Chapter
-    Topic
-    Subtopic
-    Paper
-
-    according to their actual hierarchy in the selected subject.
-
-46. Do not create unnecessary hierarchy levels that are not supported by
-    the document.
-
-47. If the document uses a different label for a grouping, map it to the
-    closest appropriate level in:
-
-    Unit → Topic → SubTopic
-
-48. Keep every study item under the correct parent unit/topic.
+i) Never drop, merge, or invent items. Keep the original order.
 
 ========================
-OUTPUT FORMAT
+5. EXAMPLES
 ========================
 
-Return ONLY valid JSON matching this exact structure:
+--- Example A: school (Class 12 Physics) ---
+Document:
+Unit III: Current Electricity
+Electric current, drift velocity, Ohm's law, resistivity; Kirchhoff's rules,
+Wheatstone bridge, metre bridge
+
+Output for this unit:
+{ "name": "Current Electricity", "topics": [
+  { "name": "Electric current and resistance", "subTopics": [
+      "Electric current", "Drift velocity", "Ohm's law", "Resistivity"] },
+  { "name": "Circuit laws and bridges", "subTopics": [
+      "Kirchhoff's rules", "Wheatstone bridge", "Metre bridge"] } ] }
+
+--- Example B: UPSC ---
+Document:
+Indian Polity and Governance
+Constitution: historical underpinnings, evolution, features, amendments,
+significant provisions and basic structure.
+Parliament and State Legislatures: structure, functioning, conduct of
+business, powers and privileges.
+
+Output for this unit:
+{ "name": "Indian Polity and Governance", "topics": [
+  { "name": "Constitution", "subTopics": [
+      "Historical underpinnings of the Constitution",
+      "Evolution of the Constitution", "Features of the Constitution",
+      "Amendments", "Significant provisions", "Basic structure"] },
+  { "name": "Parliament and State Legislatures", "subTopics": [
+      "Structure of Parliament and State Legislatures",
+      "Functioning of Parliament and State Legislatures",
+      "Conduct of business", "Powers and privileges"] } ] }
+
+--- Example C: college semester ---
+Document:
+Module 2 (8 hrs): Process Management - process concepts, scheduling
+algorithms (FCFS, SJF, Round Robin), deadlocks (detection, prevention,
+avoidance)
+
+Output for this unit:
+{ "name": "Module 2: Process Management", "topics": [
+  { "name": "Process concepts", "subTopics": [] },
+  { "name": "Scheduling algorithms", "subTopics": [
+      "FCFS", "SJF", "Round Robin"] },
+  { "name": "Deadlocks", "subTopics": [
+      "Deadlock detection", "Deadlock prevention", "Deadlock avoidance"] } ] }
+
+--- Example D: competitive exam, flat list ---
+Document:
+Quantitative Aptitude: Percentage, Profit and Loss, Simple and Compound
+Interest, Time and Work, Ratio and Proportion
+
+Output: one unit named "Quantitative Aptitude" containing five topics, each
+with "subTopics": [] (the names are inseparable concepts).
+
+WRONG (never do this):
+"subTopics": ["Meaning, basis and technique of inventory valuation, cost of inventory, net realizable value and record system"]
+
+========================
+6. COMPLETENESS
+========================
+
+- Include EVERY unit, topic, and subtopic of the selected subject.
+- Do not stop early, summarize, or compress.
+- The document is the ONLY source. Do not use outside knowledge to add,
+  expand, or complete the syllabus.
+- If the document has no readable syllabus content, return
+  {"name": "", "units": []}. Never invent content.
+
+========================
+7. OUTPUT
+========================
+
+Return ONLY valid JSON. No markdown, no code fences, no comments, no extra text.
 
 {
   "name": "Roadmap name",
@@ -208,92 +189,23 @@ Return ONLY valid JSON matching this exact structure:
     {
       "name": "Unit name",
       "topics": [
-        {
-          "name": "Topic name",
-          "subTopics": [
-            "Subtopic 1",
-            "Subtopic 2"
-          ]
-        }
+        { "name": "Topic name", "subTopics": ["Subtopic 1", "Subtopic 2"] }
       ]
     }
   ]
 }
 
-Do NOT return Markdown.
+Before answering, check:
+- Only the first subject was extracted.
+- No exam pattern, book list, or page marker was included.
+- No subtopic contains a comma-separated list of separate concepts.
+- No inseparable term (like "Profit and Loss") was wrongly split.
+- No topic name is a long enumerated sentence.
+- Every item from the document appears exactly once, in order.
 
-Do NOT return code fences.
-
-Do NOT return explanations.
-
-Do NOT return comments.
-
-Do NOT return any text before or after the JSON.
-
-========================
-FINAL VERIFICATION
-========================
-
-Before returning the JSON, internally verify:
-
-- Only the FIRST subject/major subject was extracted.
-- Other subjects were excluded.
-- The roadmap has a valid name.
-- Every unit from the selected subject is included.
-- Every topic is individually separated.
-- Every subtopic is individually separated.
-- No comma-separated study items were incorrectly merged.
-- No roadmap item was invented.
-- No roadmap item was omitted.
-- The hierarchy is preserved.
-- The final response is valid JSON matching the required schema.
-
-Completeness and correct separation of study items are more important than
-brevity.
-
---- START OF ROADMAP DOCUMENT ---
+--- START OF DOCUMENT ---
 
 ${rawText}
 
---- END OF ROADMAP DOCUMENT ---
+--- END OF DOCUMENT ---
 `;
-
-
-
-// export const buildUserPrompt = (rawText: string) => `
-// Extract the study syllabus from the document below.
-
-// Return ONLY valid JSON in exactly this structure:
-
-// {
-//   "name": "string",
-//   "units": [
-//     {
-//       "name": "string",
-//       "topics": [
-//         {
-//           "name": "string",
-//           "subTopics": ["string"]
-//         }
-//       ]
-//     }
-//   ]
-// }
-
-// Rules:
-
-// - Extract only the first subject found in the document.
-// - Include all units belonging to that subject.
-// - Include all topics under each unit.
-// - Include all explicitly listed subtopics.
-// - Do not invent information.
-// - If a topic has no subtopics, use an empty array.
-// - Keep the original wording as much as possible.
-// - Do not summarize.
-// - Do not return Markdown.
-// - Do not return explanations.
-
-// DOCUMENT:
-
-// ${rawText}
-// `;
