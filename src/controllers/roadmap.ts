@@ -48,6 +48,7 @@ export const getRoadmapById = catchAsync(
     const roadmap = await prisma.roadmap.findUnique({
       where: {
         id: roadmapId,
+        userId: req.user.id,
       },
       include: {
         units: {
@@ -61,7 +62,9 @@ export const getRoadmapById = catchAsync(
         },
       },
     });
-
+    if (!roadmap) {
+      throw new AppError("Roadmap not found", 404);
+    }
     res.status(200).json({
       message: "Roadmap fetched successfully by id ",
       roadmap,
