@@ -20,18 +20,18 @@ import {
 
 const router = Router();
 
-router.post("/uploadfile", requireAuth, upload.single("pdffile"), uploadfile);
-router.get("/roadmap", requireAuth, getAllRoadmap);
-router.get("/roadmap/isfollowing", requireAuth, getFollowingRoadMaps);
-router.get("/roadmap/:roadmapId", requireAuth, getRoadmapById);
+router.post("/uploadfile", requireAuth, upload.single("pdffile"), uploadfile); //done
+router.get("/roadmap", requireAuth, getAllRoadmap); //done
+router.get("/roadmap/isfollowing", requireAuth, getFollowingRoadMaps); //done
+router.get("/roadmap/:roadmapId", requireAuth, getRoadmapById); //done
 router.patch("/roadmap/:roadmapId", requireAuth, editRoadmapName);
 router.patch("/units/:unitId", requireAuth, editUnitName);
 router.patch("/topics/:topicId", requireAuth, editTopicName);
 router.patch("/subTopics/:subtopicId", requireAuth, editSubTopicName);
-router.delete("/roadmap/:roadmapId", requireAuth, deleteRoadmapById);
+router.delete("/roadmap/:roadmapId", requireAuth, deleteRoadmapById); //done
 router.delete("/units/:unitId", requireAuth, deleteUnitById);
 router.delete("/topics/:topicId", requireAuth, deleteTopicById);
-router.delete("/subTopics/:subtopicId", requireAuth, deleteSubTopicById);
+router.delete("/subTopics/:subTopicId", requireAuth, deleteSubTopicById);
 router.patch("/topics/:topicId/complete", requireAuth, completeTopic);
 router.patch("/roadmap/isfollowing/:roadmapId", requireAuth, followingRoadmap);
 
