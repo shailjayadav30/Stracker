@@ -20,6 +20,6 @@ const StructureNodeSchema: z.ZodType<any> = z.lazy(() =>
 );
 
 export const DocumentStructureSchema = z.object({
-  documentTitle: z.string,
+  documentTitle: z.string(),
   structure: z.array(StructureNodeSchema),
 });
