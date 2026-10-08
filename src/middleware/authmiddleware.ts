@@ -7,9 +7,6 @@ export async function requireAuth(
   res: Response,
   next: NextFunction,
 ) {
-  console.log("========== AUTH DEBUG ==========");
-  console.log("Cookie:", req.headers.cookie);
-  console.log("Authorization:", req.headers.authorization);
   const session = await auth.api.getSession({
     headers: fromNodeHeaders(req.headers),
   });
