@@ -5,11 +5,14 @@ import helmet from "helmet";
 import { env } from "./lib/env.js";
 import { toNodeHandler } from "better-auth/node";
 import { auth } from "./lib/auth.js";
-import globalErrorHandler from "./middleware/errormiddleware.js"
-import fileUpload from "./routes/fileUploadRoute.js"
+import prisma from "./lib/db.js";
+import globalErrorHandler from "./middleware/errormiddleware.js";
+import fileUpload from "./routes/fileUploadRoute.js";
 import AppError from "./lib/error/appError.js";
+
 const app = express();
 const PORT = env.PORT;
+
 app.use(helmet());
 app.use(
   cors({
@@ -17,17 +20,42 @@ app.use(
     credentials: true,
   }),
 );
-app.all("/api/auth/*splat",toNodeHandler(auth))
+app.all("/api/auth/*splat", toNodeHandler(auth));
 app.use(express.json());
 
-app.get("/", (req: Request, res: Response) => {
+app.get("/", (_req: Request, res: Response) => {
   res.json({ message: "Working" });
 });
-app.use("/api",fileUpload)
-app.use((req: Request, res: Response, next: NextFunction) => {
+
+app.get("/health", async (_req: Request, res: Response) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    res.json({ status: "ok" });
+  } catch (error) {
+    console.error("Health check failed:", error);
+    res.status(503).json({ status: "unavailable" });
+  }
+});
+
+app.use("/api", fileUpload);
+app.use((req: Request, _res: Response, next: NextFunction) => {
   next(new AppError(`Route ${req.originalUrl} not found`, 404));
 });
-app.use(globalErrorHandler)
-app.listen(PORT, () => {
-  console.log(`Server is running on PORT  ${PORT}`);
+app.use(globalErrorHandler);
+
+const server = app.listen(PORT, () => {
+  console.log(`Server is running on PORT ${PORT}`);
 });
+
+function shutdown(signal: string) {
+  console.log(`${signal} received, shutting down`);
+  // Force exit if open connections keep the server alive too long
+  setTimeout(() => process.exit(1), 10_000).unref();
+  server.close(async () => {
+    await prisma.$disconnect();
+    process.exit(0);
+  });
+}
+
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT", () => shutdown("SIGINT"));
