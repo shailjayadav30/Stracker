@@ -14,6 +14,9 @@ dist
 npm-debug.log*
 *.log
 
+# Debug files
+debug-*
+
 # OS files
 .DS_Store
 Thumbs.db
