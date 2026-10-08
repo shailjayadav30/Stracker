@@ -1,5 +1,6 @@
 import { Router } from "express";
 import upload from "../middleware/fileUploadmiddleware.js";
+import { uploadLimiter } from "../middleware/rateLimit.js";
 import { uploadfile } from "../controllers/uploadfilecontroller.js";
 import { requireAuth } from "../middleware/authmiddleware.js";
 import {
@@ -23,6 +24,7 @@ const router = Router();
 router.post(
   "/uploadfile",
   requireAuth,
+  uploadLimiter,
   upload.single("pdffile"),
   uploadfile,
 );
