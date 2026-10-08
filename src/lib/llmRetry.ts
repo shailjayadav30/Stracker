@@ -1,6 +1,20 @@
 import { z } from "zod";
-import { llmCall } from "./lllmcall.js";
+import { ApiError } from "@google/genai";
+import { llmCall } from "./llmCall.js";
 import AppError from "./error/appError.js";
+
+const MAX_ATTEMPTS = 3;
+const BASE_DELAY_MS = 1_000;
+
+class InvalidLlmOutputError extends Error {}
+
+// Retry rate limits, server errors, timeouts/network failures and malformed JSON.
+// Other 4xx API errors and schema mismatches are not retried (they won't fix themselves and cost money).
+function isRetryable(error: unknown) {
+  if (error instanceof InvalidLlmOutputError) return true;
+  if (error instanceof ApiError) return error.status === 429 || error.status >= 500;
+  return true;
+}
 
 export async function generateStructuredResponse<T>(
   prompt: string,
@@ -8,32 +22,31 @@ export async function generateStructuredResponse<T>(
 ): Promise<T> {
   let lastError: unknown;
 
-  try {
-    const response = await llmCall(prompt, schema);
-    console.log("========== RAW LLM RESPONSE ==========");
-    console.log(response);
-    console.log("======================================");
-    if (!response) {
-      throw new AppError("LLM returned an empty response", 502);
-    }
-    let json: unknown;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     try {
-      json = JSON.parse(response);
+      const response = await llmCall(prompt, schema);
+      let json: unknown;
+      try {
+        json = JSON.parse(response);
+      } catch {
+        throw new InvalidLlmOutputError("LLM response was not valid JSON");
+      }
+      const result = schema.safeParse(json);
+      if (result.success) {
+        return result.data;
+      }
+      lastError = result.error;
+      break;
     } catch (error) {
-      throw new AppError("LLM response was not valid JSON", 502);
+      lastError = error;
+      console.error(`LLM attempt ${attempt}/${MAX_ATTEMPTS} failed:`, error);
+      if (attempt === MAX_ATTEMPTS || !isRetryable(error)) break;
+      await new Promise((r) => setTimeout(r, BASE_DELAY_MS * 2 ** (attempt - 1)));
     }
-    const result = schema.safeParse(json);
-    if (result.success) {
-      return result.data;
-    }
-    lastError = result.error;
-  } catch (error) {
-    console.error("generateStructuredResponse error:", error);
-    lastError = error;
   }
-  if (lastError instanceof AppError) throw lastError;
+
   throw new AppError(
-    `Failed to generate a valid structured response ${
+    `Failed to generate a valid structured response: ${
       lastError instanceof Error ? lastError.message : String(lastError)
     }`,
     502,
