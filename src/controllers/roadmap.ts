@@ -1,462 +1,226 @@
 import type { Request, Response } from "express";
-import catchAsync from "../lib/error/catchAsync.js";
 import AppError from "../lib/error/appError.js";
 import prisma from "../lib/db.js";
+import type { Prisma } from "../generated/prisma/client.js";
+import { getUserId } from "../middleware/authmiddleware.js";
+import {
+  completeBodySchema,
+  followBodySchema,
+  nameBodySchema,
+  roadmapParamsSchema,
+  subTopicParamsSchema,
+  topicParamsSchema,
+  unitParamsSchema,
+} from "../validationSchema/requestSchemas.js";
 
-export const getAllRoadmap = catchAsync(async (req: Request, res: Response) => {
-  if (!req.user?.id) {
-    throw new AppError("Unauthorized", 401);
-  }
-
-  const roadmap = await prisma.roadmap.findMany({
-    where: {
-      userId: req.user.id,
-    },
+// Full roadmap tree, in creation order.
+// Missing records / records owned by another user surface as Prisma P2025 → 404 in the error handler.
+const roadmapTree = {
+  units: {
+    orderBy: { createdAt: "asc" },
     include: {
-      units: {
+      topics: {
+        orderBy: { createdAt: "asc" },
         include: {
-          topics: {
-            include: {
-              subTopics: true,
-            },
-          },
+          subTopics: { orderBy: { createdAt: "asc" } },
         },
       },
     },
+  },
+} satisfies Prisma.RoadmapInclude;
+
+export const getAllRoadmap = async (req: Request, res: Response) => {
+  const userId = getUserId(req);
+
+  const roadmap = await prisma.roadmap.findMany({
+    where: { userId },
+    orderBy: { createdAt: "desc" },
+    include: roadmapTree,
   });
 
   res.status(200).json({
     message: "Roadmap fetched successfully",
     roadmap,
   });
-});
+};
 
-export const getRoadmapById = catchAsync(
-  async (req: Request, res: Response) => {
-    if (!req.user?.id) {
-      throw new AppError("Unauthorized", 401);
-    }
+export const getRoadmapById = async (req: Request, res: Response) => {
+  const userId = getUserId(req);
+  const { roadmapId } = roadmapParamsSchema.parse(req.params);
 
-    const roadmapId = Array.isArray(req.params.roadmapId)
-      ? req.params.roadmapId[0]
-      : req.params.roadmapId;
-
-    if (!roadmapId) {
-      throw new AppError("Roadmap id missing ", 404);
-    }
-
-    const roadmap = await prisma.roadmap.findUnique({
-      where: {
-        id: roadmapId,
-        userId: req.user.id,
-      },
-      include: {
-        units: {
-          orderBy: { createdAt: "asc" },
-          include: {
-            topics: {
-              orderBy: { createdAt: "asc" },
-              include: {
-                subTopics: { orderBy: { createdAt: "asc" } },
-              },
-            },
-          },
-        },
-      },
-    });
-    if (!roadmap) {
-      throw new AppError("Roadmap not found", 404);
-    }
-    res.status(200).json({
-      message: "Roadmap fetched successfully by id ",
-      roadmap,
-    });
-  },
-);
-
-export const deleteRoadmapById = catchAsync(
-  async (req: Request, res: Response) => {
-    if (!req.user?.id) {
-      throw new AppError("Unauthorized", 401);
-    }
-    const roadmapId = Array.isArray(req.params.roadmapId)
-      ? req.params.roadmapId[0]
-      : req.params.roadmapId;
-    if (!roadmapId) {
-      throw new AppError("Roadmap id missing", 404);
-    }
-    const roadmap = await prisma.roadmap.findUnique({
-      where: {
-        id: roadmapId,
-        userId: req.user.id,
-      },
-    });
-
-    if (!roadmap) {
-      throw new AppError("Roadmap not found", 404);
-    }
-    const deletedroadmap = await prisma.roadmap.delete({
-      where: {
-        id: roadmapId,
-      },
-    });
-    res.status(200).json({
-      message: "Roadmap deleted successfully by id ",
-      deletedroadmap,
-    });
-  },
-);
-
-export const deleteUnitById = catchAsync(
-  async (req: Request, res: Response) => {
-    if (!req.user?.id) {
-      throw new AppError("Unauthorized", 401);
-    }
-    const unitId = Array.isArray(req.params.unitId)
-      ? req.params.unitId[0]
-      : req.params.unitId;
-    if (!unitId) {
-      throw new AppError("Unit id missing", 404);
-    }
-    const unit = await prisma.unit.findUnique({
-      where: {
-        id: unitId,
-        roadmap: {
-          userId: req.user.id,
-        },
-      },
-    });
-
-    if (!unit) {
-      throw new AppError("Unit not found", 404);
-    }
-    const deletedUnit = await prisma.unit.delete({
-      where: {
-        id: unitId,
-      },
-    });
-    res.status(200).json({
-      message: "Unit deleted successfully by id ",
-      deletedUnit,
-    });
-  },
-);
-
-export const deleteTopicById = catchAsync(
-  async (req: Request, res: Response) => {
-    if (!req.user?.id) {
-      throw new AppError("Unauthorized", 401);
-    }
-    const topicId = Array.isArray(req.params.topicId)
-      ? req.params.topicId[0]
-      : req.params.topicId;
-    if (!topicId) {
-      throw new AppError("Topic id missing", 404);
-    }
-    const topic = await prisma.topic.findUnique({
-      where: {
-        id: topicId,
-        unit: {
-          roadmap: {
-            userId: req.user.id,
-          },
-        },
-      },
-    });
-
-    if (!topic) {
-      throw new AppError("Topic not found", 404);
-    }
-    const deletedTopic = await prisma.topic.delete({
-      where: {
-        id: topicId,
-      },
-    });
-    res.status(200).json({
-      message: "Topic deleted successfully by id ",
-      deletedTopic,
-    });
-  },
-);
-
-export const deleteSubTopicById = catchAsync(
-  async (req: Request, res: Response) => {
-    if (!req.user?.id) {
-      throw new AppError("Unauthorized", 401);
-    }
-    const subTopicId = Array.isArray(req.params.subTopicId)
-      ? req.params.subTopicId[0]
-      : req.params.subTopicId;
-    if (!subTopicId) {
-      throw new AppError("SubTopic id missing", 404);
-    }
-    const subTopic = await prisma.subTopic.findUnique({
-      where: {
-        id: subTopicId,
-        topic: {
-          unit: {
-            roadmap: {
-              userId: req.user.id,
-            },
-          },
-        },
-      },
-    });
-
-    if (!subTopic) {
-      throw new AppError("SubTopic not found", 404);
-    }
-    const deletedSubTopic = await prisma.subTopic.delete({
-      where: {
-        id: subTopicId,
-      },
-    });
-    res.status(200).json({
-      message: "Roadmap deleted successfully by id ",
-      deletedSubTopic,
-    });
-  },
-);
-
-export const editRoadmapName = catchAsync(
-  async (req: Request, res: Response) => {
-    if (!req.user?.id) {
-      throw new AppError("unAuthenticated", 401);
-    }
-    const roadmapId = Array.isArray(req.params.roadmapId)
-      ? req.params.roadmapId[0]
-      : req.params.roadmapId;
-    if (!roadmapId) {
-      throw new AppError("Roadmap id not found", 400);
-    }
-
-    const { name } = req.body;
-    if (!name?.trim()) {
-      throw new AppError("Roadmap name is required", 400);
-    }
-    const roadmap = await prisma.roadmap.update({
-      where: {
-        id: roadmapId,
-        userId: req.user.id,
-      },
-      data: {
-        name: name.trim(),
-      },
-    });
-    res.status(200).json({ message: "Roadmap updated successfully", roadmap });
-  },
-);
-
-export const editUnitName = catchAsync(async (req: Request, res: Response) => {
-  if (!req.user?.id) {
-    throw new AppError("unAuthenticated", 401);
-  }
-  const unitId = Array.isArray(req.params.unitId)
-    ? req.params.unitId[0]
-    : req.params.unitId;
-  if (!unitId) {
-    throw new AppError("Unit id not found", 400);
+  const roadmap = await prisma.roadmap.findUnique({
+    where: { id: roadmapId, userId },
+    include: roadmapTree,
+  });
+  if (!roadmap) {
+    throw new AppError("Roadmap not found", 404);
   }
 
-  const { name } = req.body;
-  if (!name?.trim()) {
-    throw new AppError("Unit name is required", 400);
-  }
+  res.status(200).json({
+    message: "Roadmap fetched successfully by id",
+    roadmap,
+  });
+};
+
+export const deleteRoadmapById = async (req: Request, res: Response) => {
+  const userId = getUserId(req);
+  const { roadmapId } = roadmapParamsSchema.parse(req.params);
+
+  const deletedroadmap = await prisma.roadmap.delete({
+    where: { id: roadmapId, userId },
+  });
+
+  res.status(200).json({
+    message: "Roadmap deleted successfully by id",
+    deletedroadmap,
+  });
+};
+
+export const deleteUnitById = async (req: Request, res: Response) => {
+  const userId = getUserId(req);
+  const { unitId } = unitParamsSchema.parse(req.params);
+
+  const deletedUnit = await prisma.unit.delete({
+    where: { id: unitId, roadmap: { userId } },
+  });
+
+  res.status(200).json({
+    message: "Unit deleted successfully by id",
+    deletedUnit,
+  });
+};
+
+export const deleteTopicById = async (req: Request, res: Response) => {
+  const userId = getUserId(req);
+  const { topicId } = topicParamsSchema.parse(req.params);
+
+  const deletedTopic = await prisma.topic.delete({
+    where: { id: topicId, unit: { roadmap: { userId } } },
+  });
+
+  res.status(200).json({
+    message: "Topic deleted successfully by id",
+    deletedTopic,
+  });
+};
+
+export const deleteSubTopicById = async (req: Request, res: Response) => {
+  const userId = getUserId(req);
+  const { subTopicId } = subTopicParamsSchema.parse(req.params);
+
+  const deletedSubTopic = await prisma.subTopic.delete({
+    where: { id: subTopicId, topic: { unit: { roadmap: { userId } } } },
+  });
+
+  res.status(200).json({
+    message: "SubTopic deleted successfully by id",
+    deletedSubTopic,
+  });
+};
+
+export const editRoadmapName = async (req: Request, res: Response) => {
+  const userId = getUserId(req);
+  const { roadmapId } = roadmapParamsSchema.parse(req.params);
+  const { name } = nameBodySchema.parse(req.body);
+
+  const roadmap = await prisma.roadmap.update({
+    where: { id: roadmapId, userId },
+    data: { name },
+  });
+
+  res.status(200).json({ message: "Roadmap updated successfully", roadmap });
+};
+
+export const editUnitName = async (req: Request, res: Response) => {
+  const userId = getUserId(req);
+  const { unitId } = unitParamsSchema.parse(req.params);
+  const { name } = nameBodySchema.parse(req.body);
+
   const unit = await prisma.unit.update({
-    where: {
-      id: unitId,
-      roadmap: {
-        userId: req.user.id,
-      },
-    },
-    data: {
-      name: name.trim(),
-    },
+    where: { id: unitId, roadmap: { userId } },
+    data: { name },
   });
-  res.status(200).json({ message: "Unit  updated successfully", unit });
-});
 
-export const editTopicName = catchAsync(async (req: Request, res: Response) => {
-  if (!req.user?.id) {
-    throw new AppError("unAuthenticated", 401);
-  }
-  const topicId = Array.isArray(req.params.topicId)
-    ? req.params.topicId[0]
-    : req.params.topicId;
-  if (!topicId) {
-    throw new AppError("topic id not found", 400);
-  }
+  res.status(200).json({ message: "Unit updated successfully", unit });
+};
 
-  const { name } = req.body;
-  if (!name?.trim()) {
-    throw new AppError("Topic name is required", 400);
-  }
+export const editTopicName = async (req: Request, res: Response) => {
+  const userId = getUserId(req);
+  const { topicId } = topicParamsSchema.parse(req.params);
+  const { name } = nameBodySchema.parse(req.body);
+
   const topic = await prisma.topic.update({
-    where: {
-      id: topicId,
-      unit: {
-        roadmap: {
-          userId: req.user.id,
-        },
-      },
-    },
-    data: {
-      name: name.trim(),
-    },
+    where: { id: topicId, unit: { roadmap: { userId } } },
+    data: { name },
   });
+
   res.status(200).json({ message: "Topic updated successfully", topic });
-});
+};
 
-export const editSubTopicName = catchAsync(
-  async (req: Request, res: Response) => {
-    if (!req.user?.id) {
-      throw new AppError("unAuthenticated", 401);
-    }
-    const subTopicId = Array.isArray(req.params.subtopicId)
-      ? req.params.subtopicId[0]
-      : req.params.subtopicId;
-    if (!subTopicId) {
-      throw new AppError("SubTopic id not found", 400);
-    }
+export const editSubTopicName = async (req: Request, res: Response) => {
+  const userId = getUserId(req);
+  const { subTopicId } = subTopicParamsSchema.parse(req.params);
+  const { name } = nameBodySchema.parse(req.body);
 
-    const { name } = req.body;
-    if (!name?.trim()) {
-      throw new AppError("SubTopic name is required", 400);
-    }
-    const topic = await prisma.subTopic.update({
-      where: {
-        id: subTopicId,
-        topic: {
-          unit: {
-            roadmap: {
-              userId: req.user.id,
-            },
-          },
-        },
-      },
-      data: {
-        name: name.trim(),
-      },
-    });
-    res.status(200).json({ message: "SubTopic updated successfully", topic });
-  },
-);
+  const topic = await prisma.subTopic.update({
+    where: { id: subTopicId, topic: { unit: { roadmap: { userId } } } },
+    data: { name },
+  });
 
-export const completeTopic = catchAsync(async (req: Request, res: Response) => {
-  if (!req.user?.id) {
-    throw new AppError("Unauthenticated", 401);
-  }
-  const topicId = Array.isArray(req.params.topicId)
-    ? req.params.topicId[0]
-    : req.params.topicId;
-  if (!topicId) {
-    throw new AppError("Topic Id not found", 400);
-  }
-  const { completed } = req.body;
-  const userId = req.user.id;
-  const topicCompleted = await prisma.$transaction(async (tx) => {
-    const topic = await tx.topic.update({
-      where: {
-        id: topicId,
-        unit: {
-          roadmap: {
-            userId: userId,
-          },
-        },
-      },
-      data: {
-        completed,
-      },
+  // Response key stays `topic` for API compatibility
+  res.status(200).json({ message: "SubTopic updated successfully", topic });
+};
+
+export const completeTopic = async (req: Request, res: Response) => {
+  const userId = getUserId(req);
+  const { topicId } = topicParamsSchema.parse(req.params);
+  const { completed } = completeBodySchema.parse(req.body);
+
+  const topic = await prisma.$transaction(async (tx) => {
+    const updated = await tx.topic.update({
+      where: { id: topicId, unit: { roadmap: { userId } } },
+      data: { completed },
     });
     await tx.subTopic.updateMany({
-      where: {
-        topicId: topicId,
-      },
-      data: {
-        completed,
-      },
+      where: { topicId },
+      data: { completed },
     });
-    return topic;
+    return updated;
   });
 
-  res
-    .status(200)
-    .json({ message: "Task completed successfully", topic: topicCompleted });
-});
+  res.status(200).json({ message: "Task completed successfully", topic });
+};
 
-export const followingRoadmap = catchAsync(
-  async (req: Request, res: Response) => {
-    if (!req.user?.id) {
-      throw new AppError("Unauthorized", 401);
-    }
-    const { isFollowing } = req.body;
-    const roadmapId = Array.isArray(req.params.roadmapId)
-      ? req.params.roadmapId[0]
-      : req.params.roadmapId;
-    if (!roadmapId) {
-      throw new AppError("Roadmap Id not found", 400);
-    }
-    if (typeof isFollowing !== "boolean") {
-      throw new AppError("isFollowing must be a boolean", 400);
-    }
-    const roadmap = await prisma.roadmap.findFirst({
-      where: {
-        id: roadmapId,
-        userId: req.user.id,
-      },
-      select: {
-        id: true,
-      },
-    });
-    if (!roadmap) {
-      throw new AppError("Roadmap not found", 404);
-    }
-    await prisma.roadmap.update({
-      where: {
-        id: roadmap.id,
-      },
-      data: {
-        isFollowing,
-      },
-    });
-    return res.status(200).json({
-      message: isFollowing
-        ? "Roadmap is now being followed"
-        : "Roadmap unfollowed",
-    });
-  },
-);
+export const followingRoadmap = async (req: Request, res: Response) => {
+  const userId = getUserId(req);
+  const { roadmapId } = roadmapParamsSchema.parse(req.params);
+  const { isFollowing } = followBodySchema.parse(req.body);
 
-export const getFollowingRoadMaps = catchAsync(
-  async (req: Request, res: Response) => {
-    if (!req.user?.id) {
-      throw new AppError("Unauthorized", 401);
-    }
+  await prisma.roadmap.update({
+    where: { id: roadmapId, userId },
+    data: { isFollowing },
+    select: { id: true },
+  });
 
-    const roadmaps = await prisma.roadmap.findMany({
-      where: {
-        userId: req.user.id,
-        isFollowing: true,
-      },
-      include: {
-        units: {
-          include: {
-            topics: {
-              include: {
-                subTopics: true,
-              },
-            },
-          },
-        },
-      },
-    });
+  res.status(200).json({
+    message: isFollowing ? "Roadmap is now being followed" : "Roadmap unfollowed",
+  });
+};
 
-    res.status(200).json({
-      message:
-        roadmaps.length > 0
-          ? "Following roadmaps retrieved successfully"
-          : "You are not following any roadmap",
-      roadmaps,
-    });
-  },
-);
+export const getFollowingRoadMaps = async (req: Request, res: Response) => {
+  const userId = getUserId(req);
+
+  const roadmaps = await prisma.roadmap.findMany({
+    where: { userId, isFollowing: true },
+    orderBy: { createdAt: "desc" },
+    include: roadmapTree,
+  });
+
+  res.status(200).json({
+    message:
+      roadmaps.length > 0
+        ? "Following roadmaps retrieved successfully"
+        : "You are not following any roadmap",
+    roadmaps,
+  });
+};
