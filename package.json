@@ -15,7 +15,7 @@
     "prisma": "^7.10.0",
     "zod": "^4.4.3"
   },
-  "name": "backend",
+  "name": "shinro-backend",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
@@ -40,6 +40,6 @@
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
+  "license": "UNLICENSED",
   "type": "module"
 }

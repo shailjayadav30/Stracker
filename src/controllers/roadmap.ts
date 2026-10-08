@@ -88,6 +88,7 @@ export const deleteRoadmapById = catchAsync(
     const roadmap = await prisma.roadmap.findUnique({
       where: {
         id: roadmapId,
+        userId: req.user.id,
       },
     });
 
@@ -120,6 +121,9 @@ export const deleteUnitById = catchAsync(
     const unit = await prisma.unit.findUnique({
       where: {
         id: unitId,
+        roadmap: {
+          userId: req.user.id,
+        },
       },
     });
 
@@ -152,6 +156,11 @@ export const deleteTopicById = catchAsync(
     const topic = await prisma.topic.findUnique({
       where: {
         id: topicId,
+        unit: {
+          roadmap: {
+            userId: req.user.id,
+          },
+        },
       },
     });
 
@@ -184,6 +193,13 @@ export const deleteSubTopicById = catchAsync(
     const subTopic = await prisma.subTopic.findUnique({
       where: {
         id: subTopicId,
+        topic: {
+          unit: {
+            roadmap: {
+              userId: req.user.id,
+            },
+          },
+        },
       },
     });
 
@@ -221,6 +237,7 @@ export const editRoadmapName = catchAsync(
     const roadmap = await prisma.roadmap.update({
       where: {
         id: roadmapId,
+        userId: req.user.id,
       },
       data: {
         name: name.trim(),
@@ -248,6 +265,9 @@ export const editUnitName = catchAsync(async (req: Request, res: Response) => {
   const unit = await prisma.unit.update({
     where: {
       id: unitId,
+      roadmap: {
+        userId: req.user.id,
+      },
     },
     data: {
       name: name.trim(),
@@ -274,6 +294,11 @@ export const editTopicName = catchAsync(async (req: Request, res: Response) => {
   const topic = await prisma.topic.update({
     where: {
       id: topicId,
+      unit: {
+        roadmap: {
+          userId: req.user.id,
+        },
+      },
     },
     data: {
       name: name.trim(),
@@ -301,6 +326,13 @@ export const editSubTopicName = catchAsync(
     const topic = await prisma.subTopic.update({
       where: {
         id: subTopicId,
+        topic: {
+          unit: {
+            roadmap: {
+              userId: req.user.id,
+            },
+          },
+        },
       },
       data: {
         name: name.trim(),
@@ -321,10 +353,16 @@ export const completeTopic = catchAsync(async (req: Request, res: Response) => {
     throw new AppError("Topic Id not found", 400);
   }
   const { completed } = req.body;
+  const userId = req.user.id;
   const topicCompleted = await prisma.$transaction(async (tx) => {
     const topic = await tx.topic.update({
       where: {
         id: topicId,
+        unit: {
+          roadmap: {
+            userId: userId,
+          },
+        },
       },
       data: {
         completed,
