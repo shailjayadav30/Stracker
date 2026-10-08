@@ -17,6 +17,7 @@ import {
   getAllRoadmap,
   getRoadmapById,
   getFollowingRoadMaps,
+  completeUnit,
 } from "../controllers/roadmap.js";
 
 const router = Router();
@@ -39,6 +40,7 @@ router.delete("/roadmap/:roadmapId", requireAuth, deleteRoadmapById);
 router.delete("/units/:unitId", requireAuth, deleteUnitById);
 router.delete("/topics/:topicId", requireAuth, deleteTopicById);
 router.delete("/subTopics/:subTopicId", requireAuth, deleteSubTopicById);
+router.patch("/units/:unitId/complete", requireAuth, completeUnit);
 router.patch("/topics/:topicId/complete", requireAuth, completeTopic);
 router.patch("/roadmap/isfollowing/:roadmapId", requireAuth, followingRoadmap);
 

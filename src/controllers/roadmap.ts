@@ -170,6 +170,25 @@ export const editSubTopicName = async (req: Request, res: Response) => {
   // Response key stays `topic` for API compatibility
   res.status(200).json({ message: "SubTopic updated successfully", topic });
 };
+export const completeUnit = async (req: Request, res: Response) => {
+  const userId = getUserId(req);
+  const { unitId } = unitParamsSchema.parse(req.params);
+  const { completed } = completeBodySchema.parse(req.body);
+
+  await prisma.$transaction(async (tx) => {
+    await tx.unit.findUniqueOrThrow({
+      where: { id: unitId, roadmap: { userId } },
+      select: { id: true },
+    });
+    await tx.topic.updateMany({ where: { unitId }, data: { completed } });
+    await tx.subTopic.updateMany({
+      where: { topic: { unitId } },
+      data: { completed },
+    });
+  });
+
+  res.status(200).json({ message: "Unit updated successfully" });
+};
 
 export const completeTopic = async (req: Request, res: Response) => {
   const userId = getUserId(req);
@@ -203,7 +222,9 @@ export const followingRoadmap = async (req: Request, res: Response) => {
   });
 
   res.status(200).json({
-    message: isFollowing ? "Roadmap is now being followed" : "Roadmap unfollowed",
+    message: isFollowing
+      ? "Roadmap is now being followed"
+      : "Roadmap unfollowed",
   });
 };
 
