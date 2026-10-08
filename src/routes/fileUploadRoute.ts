@@ -1,4 +1,4 @@
-import Router from "express";
+import { Router } from "express";
 import upload from "../middleware/fileUploadmiddleware.js";
 import { uploadfile } from "../controllers/uploadfilecontroller.js";
 import { requireAuth } from "../middleware/authmiddleware.js";
