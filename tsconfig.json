@@ -9,6 +9,11 @@
     // See also https://aka.ms/tsconfig/module
     "module": "nodenext",
     "target": "esnext",
+    // Vercel's type checker resolves packages without the ESM resolution mode, so it picks
+    // helmet's CommonJS typings, where `helmet` isn't callable. Point it at the ESM typings.
+    "paths": {
+      "helmet": ["./node_modules/helmet/index.d.mts"]
+    },
 
     // Other Outputs
     "sourceMap": true,
