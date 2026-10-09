@@ -44,11 +44,19 @@ export const uploadfile = async (req: Request, res: Response) => {
     buildUserPrompt(promptText),
     RoadmapSchema,
   );
+  if (roadmapData.units.length === 0) {
+    throw new AppError("No syllabus content was found in this PDF", 422);
+  }
+  // Fall back to the file name if the model found content but no title
+  const roadmapName =
+    roadmapData.name.trim() ||
+    req.file.originalname.replace(/\.pdf$/i, "").trim() ||
+    "Untitled roadmap";
 
   // 4. Save to database
   const createdRoadmap = await prisma.roadmap.create({
     data: {
-      name: roadmapData.name,
+      name: roadmapName,
       userId,
       units: {
         create: roadmapData.units.map((unit) => ({
