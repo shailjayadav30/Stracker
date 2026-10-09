@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import AppError from "../lib/error/appError.js";
 import prisma from "../lib/db.js";
-import type { Prisma } from "../generated/prisma/client.js";
+import { roadmapTree } from "../lib/roadmapTree.js";
 import { getUserId } from "../middleware/authmiddleware.js";
 import {
   completeBodySchema,
@@ -13,21 +13,7 @@ import {
   unitParamsSchema,
 } from "../validationSchema/requestSchemas.js";
 
-// Full roadmap tree, in creation order.
 // Missing records / records owned by another user surface as Prisma P2025 → 404 in the error handler.
-const roadmapTree = {
-  units: {
-    orderBy: { createdAt: "asc" },
-    include: {
-      topics: {
-        orderBy: { createdAt: "asc" },
-        include: {
-          subTopics: { orderBy: { createdAt: "asc" } },
-        },
-      },
-    },
-  },
-} satisfies Prisma.RoadmapInclude;
 
 export const getAllRoadmap = async (req: Request, res: Response) => {
   const userId = getUserId(req);

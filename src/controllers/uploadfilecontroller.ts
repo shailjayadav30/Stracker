@@ -5,6 +5,7 @@ import AppError from "../lib/error/appError.js";
 import { generateStructuredResponse } from "../lib/llmRetry.js";
 import { buildUserPrompt } from "../lib/prompt/userPrompt.js";
 import prisma from "../lib/db.js";
+import { roadmapTree } from "../lib/roadmapTree.js";
 import { getUserId } from "../middleware/authmiddleware.js";
 
 const MAX_PROMPT_TEXT_CHARS = 20_000;
@@ -59,14 +60,18 @@ export const uploadfile = async (req: Request, res: Response) => {
       name: roadmapName,
       userId,
       units: {
-        create: roadmapData.units.map((unit) => ({
+        // position preserves the syllabus order extracted from the PDF
+        create: roadmapData.units.map((unit, unitIndex) => ({
           name: unit.name,
+          position: unitIndex,
           topics: {
-            create: unit.topics.map((topic) => ({
+            create: unit.topics.map((topic, topicIndex) => ({
               name: topic.name,
+              position: topicIndex,
               subTopics: {
-                create: topic.subTopics.map((subTopic) => ({
+                create: topic.subTopics.map((subTopic, subTopicIndex) => ({
                   name: subTopic,
+                  position: subTopicIndex,
                 })),
               },
             })),
@@ -74,17 +79,7 @@ export const uploadfile = async (req: Request, res: Response) => {
         })),
       },
     },
-    include: {
-      units: {
-        include: {
-          topics: {
-            include: {
-              subTopics: true,
-            },
-          },
-        },
-      },
-    },
+    include: roadmapTree,
   });
 
   res.status(201).json({
