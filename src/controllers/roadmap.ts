@@ -200,6 +200,30 @@ export const completeTopic = async (req: Request, res: Response) => {
   res.status(200).json({ message: "Task completed successfully", topic });
 };
 
+export const completeSubTopic = async (req: Request, res: Response) => {
+  const userId = getUserId(req);
+  const { subTopicId } = subTopicParamsSchema.parse(req.params);
+  const { completed } = completeBodySchema.parse(req.body);
+
+  const subTopic = await prisma.$transaction(async (tx) => {
+    const updated = await tx.subTopic.update({
+      where: { id: subTopicId, topic: { unit: { roadmap: { userId } } } },
+      data: { completed },
+    });
+    // A topic counts as done once all of its subtopics are
+    const remaining = await tx.subTopic.count({
+      where: { topicId: updated.topicId, completed: false },
+    });
+    await tx.topic.update({
+      where: { id: updated.topicId },
+      data: { completed: remaining === 0 },
+    });
+    return updated;
+  });
+
+  res.status(200).json({ message: "SubTopic updated successfully", subTopic });
+};
+
 export const followingRoadmap = async (req: Request, res: Response) => {
   const userId = getUserId(req);
   const { roadmapId } = roadmapParamsSchema.parse(req.params);
