@@ -2,10 +2,12 @@ import type { Request, Response } from "express";
 import AppError from "../lib/error/appError.js";
 import prisma from "../lib/db.js";
 import { roadmapTree } from "../lib/roadmapTree.js";
+import { listRoadmapSummaries } from "../lib/roadmapSummary.js";
 import { getUserId } from "../middleware/authmiddleware.js";
 import {
   completeBodySchema,
   followBodySchema,
+  listQuerySchema,
   nameBodySchema,
   roadmapParamsSchema,
   subTopicParamsSchema,
@@ -17,16 +19,18 @@ import {
 
 export const getAllRoadmap = async (req: Request, res: Response) => {
   const userId = getUserId(req);
+  const query = listQuerySchema.parse(req.query);
 
-  const roadmap = await prisma.roadmap.findMany({
-    where: { userId },
-    orderBy: { createdAt: "desc" },
-    include: roadmapTree,
-  });
+  const { roadmaps, nextCursor } = await listRoadmapSummaries(
+    { userId },
+    query,
+  );
 
+  // Response key stays `roadmap` for API compatibility
   res.status(200).json({
     message: "Roadmap fetched successfully",
-    roadmap,
+    roadmap: roadmaps,
+    nextCursor,
   });
 };
 
@@ -216,12 +220,12 @@ export const followingRoadmap = async (req: Request, res: Response) => {
 
 export const getFollowingRoadMaps = async (req: Request, res: Response) => {
   const userId = getUserId(req);
+  const query = listQuerySchema.parse(req.query);
 
-  const roadmaps = await prisma.roadmap.findMany({
-    where: { userId, isFollowing: true },
-    orderBy: { createdAt: "desc" },
-    include: roadmapTree,
-  });
+  const { roadmaps, nextCursor } = await listRoadmapSummaries(
+    { userId, isFollowing: true },
+    query,
+  );
 
   res.status(200).json({
     message:
@@ -229,5 +233,6 @@ export const getFollowingRoadMaps = async (req: Request, res: Response) => {
         ? "Following roadmaps retrieved successfully"
         : "You are not following any roadmap",
     roadmaps,
+    nextCursor,
   });
 };
