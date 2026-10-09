@@ -46,7 +46,7 @@ Create a `.env` file in the project root:
 | `ALLOW_EXPO_GO`        | Yes      | `"true"` to trust Expo Go URLs during development            |
 | `ALLOWED_ORIGINS`      | No       | Comma-separated CORS origins. Default `http://localhost:3000` |
 | `PORT`                 | No       | Default `3000`                                                |
-| `NODE_ENV`             | No       | `development` or `production`. Default `development`     |
+| `NODE_ENV`             | No       | `development`, `production` or `test`. Default `production`. Set `development` locally to get stack traces in error responses |
 
 Never commit `.env`. It is already in `.gitignore`.
 

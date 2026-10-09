@@ -2,9 +2,10 @@ import "dotenv/config";
 import z from "zod";
 
 const envSchema = z.object({
+  // Defaults to production so error details (stack traces) are only sent when explicitly opted in
   NODE_ENV: z
     .enum(["development", "production", "test"])
-    .default("development"),
+    .default("production"),
   PORT: z.coerce.number().int().positive().default(3000),
   DATABASE_URL: z.url(),
   BETTER_AUTH_SECRET: z.string().min(1),
