@@ -13,6 +13,8 @@ import AppError from "./lib/error/appError.js";
 const app = express();
 const PORT = env.PORT;
 
+// Behind Vercel's proxy: use X-Forwarded-For for req.ip / req.protocol
+app.set("trust proxy", 1);
 app.use(helmet());
 app.use(
   cors({
