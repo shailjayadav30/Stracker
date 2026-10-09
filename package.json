@@ -36,7 +36,7 @@
   },
   "scripts": {
     "start": "node dist/index.js",
-    "dev": "tsx watch src/index.ts",
+    "dev": "tsx watch --tsconfig tsconfig.dev.json src/index.ts",
     "build": "prisma generate && tsc",
     "postinstall": "prisma generate",
     "prepare": "node .husky/install.mjs",

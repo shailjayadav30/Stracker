@@ -1,0 +1,8 @@
+{
+  // Used by `npm run dev` only. tsx applies `paths` at runtime, so the helmet typings
+  // override in tsconfig.json would make it import a .d.mts file and crash on startup.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "paths": {}
+  }
+}
