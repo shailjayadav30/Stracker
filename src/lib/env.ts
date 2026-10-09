@@ -2,9 +2,10 @@ import "dotenv/config";
 import z from "zod";
 
 const envSchema = z.object({
+  // Defaults to production so error details (stack traces) are only sent when explicitly opted in
   NODE_ENV: z
     .enum(["development", "production", "test"])
-    .default("development"),
+    .default("production"),
   PORT: z.coerce.number().int().positive().default(3000),
   DATABASE_URL: z.url(),
   BETTER_AUTH_SECRET: z.string().min(1),
@@ -16,6 +17,8 @@ const envSchema = z.object({
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
   ALLOW_EXPO_GO: z.stringbool().default(false),
+  UPSTASH_REDIS_REST_URL: z.url(),
+  UPSTASH_REDIS_REST_TOKEN: z.string().min(1),
 });
 
 function createEnv(env: NodeJS.ProcessEnv) {

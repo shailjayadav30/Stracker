@@ -5,9 +5,25 @@ import AppError from "../lib/error/appError.js";
 import { generateStructuredResponse } from "../lib/llmRetry.js";
 import { buildUserPrompt } from "../lib/prompt/userPrompt.js";
 import prisma from "../lib/db.js";
+import { roadmapTree } from "../lib/roadmapTree.js";
 import { getUserId } from "../middleware/authmiddleware.js";
 
 const MAX_PROMPT_TEXT_CHARS = 20_000;
+
+// Cap the text sent to the LLM. Cut at a line break when one is reasonably close to the
+// limit, so the last syllabus line isn't sent half-finished.
+function capPromptText(text: string) {
+  if (text.length <= MAX_PROMPT_TEXT_CHARS) {
+    return { promptText: text, truncated: false };
+  }
+  const hardCut = text.slice(0, MAX_PROMPT_TEXT_CHARS);
+  const lastNewline = hardCut.lastIndexOf("\n");
+  const promptText =
+    lastNewline > MAX_PROMPT_TEXT_CHARS * 0.8
+      ? hardCut.slice(0, lastNewline)
+      : hardCut;
+  return { promptText, truncated: true };
+}
 
 export const uploadfile = async (req: Request, res: Response) => {
   const userId = getUserId(req);
@@ -39,26 +55,43 @@ export const uploadfile = async (req: Request, res: Response) => {
   }
 
   // 3. Generate roadmap (text is capped to keep the prompt within budget)
-  const promptText = rawText.slice(0, MAX_PROMPT_TEXT_CHARS);
+  const { promptText, truncated } = capPromptText(rawText);
+  if (truncated) {
+    console.log(
+      `PDF text truncated for LLM: ${rawText.length} -> ${promptText.length} characters`,
+    );
+  }
   const roadmapData = await generateStructuredResponse(
     buildUserPrompt(promptText),
     RoadmapSchema,
   );
+  if (roadmapData.units.length === 0) {
+    throw new AppError("No syllabus content was found in this PDF", 422);
+  }
+  // Fall back to the file name if the model found content but no title
+  const roadmapName =
+    roadmapData.name.trim() ||
+    req.file.originalname.replace(/\.pdf$/i, "").trim() ||
+    "Untitled roadmap";
 
   // 4. Save to database
   const createdRoadmap = await prisma.roadmap.create({
     data: {
-      name: roadmapData.name,
+      name: roadmapName,
       userId,
       units: {
-        create: roadmapData.units.map((unit) => ({
+        // position preserves the syllabus order extracted from the PDF
+        create: roadmapData.units.map((unit, unitIndex) => ({
           name: unit.name,
+          position: unitIndex,
           topics: {
-            create: unit.topics.map((topic) => ({
+            create: unit.topics.map((topic, topicIndex) => ({
               name: topic.name,
+              position: topicIndex,
               subTopics: {
-                create: topic.subTopics.map((subTopic) => ({
+                create: topic.subTopics.map((subTopic, subTopicIndex) => ({
                   name: subTopic,
+                  position: subTopicIndex,
                 })),
               },
             })),
@@ -66,21 +99,16 @@ export const uploadfile = async (req: Request, res: Response) => {
         })),
       },
     },
-    include: {
-      units: {
-        include: {
-          topics: {
-            include: {
-              subTopics: true,
-            },
-          },
-        },
-      },
-    },
+    include: roadmapTree,
   });
 
   res.status(201).json({
     success: true,
     roadmap: createdRoadmap,
+    truncated,
+    ...(truncated && {
+      warning:
+        "This PDF is long, so only its first part was processed. Content near the end may be missing from the roadmap.",
+    }),
   });
 };
