@@ -10,6 +10,21 @@ import { getUserId } from "../middleware/authmiddleware.js";
 
 const MAX_PROMPT_TEXT_CHARS = 20_000;
 
+// Cap the text sent to the LLM. Cut at a line break when one is reasonably close to the
+// limit, so the last syllabus line isn't sent half-finished.
+function capPromptText(text: string) {
+  if (text.length <= MAX_PROMPT_TEXT_CHARS) {
+    return { promptText: text, truncated: false };
+  }
+  const hardCut = text.slice(0, MAX_PROMPT_TEXT_CHARS);
+  const lastNewline = hardCut.lastIndexOf("\n");
+  const promptText =
+    lastNewline > MAX_PROMPT_TEXT_CHARS * 0.8
+      ? hardCut.slice(0, lastNewline)
+      : hardCut;
+  return { promptText, truncated: true };
+}
+
 export const uploadfile = async (req: Request, res: Response) => {
   const userId = getUserId(req);
 
@@ -40,7 +55,12 @@ export const uploadfile = async (req: Request, res: Response) => {
   }
 
   // 3. Generate roadmap (text is capped to keep the prompt within budget)
-  const promptText = rawText.slice(0, MAX_PROMPT_TEXT_CHARS);
+  const { promptText, truncated } = capPromptText(rawText);
+  if (truncated) {
+    console.log(
+      `PDF text truncated for LLM: ${rawText.length} -> ${promptText.length} characters`,
+    );
+  }
   const roadmapData = await generateStructuredResponse(
     buildUserPrompt(promptText),
     RoadmapSchema,
@@ -85,5 +105,10 @@ export const uploadfile = async (req: Request, res: Response) => {
   res.status(201).json({
     success: true,
     roadmap: createdRoadmap,
+    truncated,
+    ...(truncated && {
+      warning:
+        "This PDF is long, so only its first part was processed. Content near the end may be missing from the roadmap.",
+    }),
   });
 };
