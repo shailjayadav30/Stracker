@@ -4,6 +4,7 @@ import { uploadLimiter } from "../middleware/rateLimit.js";
 import { uploadfile } from "../controllers/uploadfilecontroller.js";
 import { requireAuth } from "../middleware/authmiddleware.js";
 import {
+  completeSubTopic,
   completeTopic,
   deleteRoadmapById,
   deleteSubTopicById,
@@ -42,6 +43,11 @@ router.delete("/topics/:topicId", requireAuth, deleteTopicById);
 router.delete("/subTopics/:subTopicId", requireAuth, deleteSubTopicById);
 router.patch("/units/:unitId/complete", requireAuth, completeUnit);
 router.patch("/topics/:topicId/complete", requireAuth, completeTopic);
+router.patch(
+  "/subTopics/:subTopicId/complete",
+  requireAuth,
+  completeSubTopic,
+);
 router.patch("/roadmap/isfollowing/:roadmapId", requireAuth, followingRoadmap);
 
 export default router;
