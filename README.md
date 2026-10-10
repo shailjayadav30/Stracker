@@ -40,10 +40,14 @@ Create a `.env` file in the project root:
 | `BETTER_AUTH_SECRET`   | Yes      | Secret used by better-auth to sign sessions                    |
 | `BETTER_AUTH_URL`      | Yes      | Public base URL of this server                                 |
 | `GEMINI_API_KEY`       | Yes      | Google Gemini API key                                          |
-| `JWT_SECRET`           | Yes      | JWT secret                                                     |
-| `GOOGLE_CLIENT_ID`     | Yes      | Google OAuth client id                                         |
-| `GOOGLE_CLIENT_SECRET` | Yes      | Google OAuth client secret                                     |
-| `ALLOW_EXPO_GO`        | Yes      | `"true"` to trust Expo Go URLs during development            |
+| `GEMINI_MODEL`         | No       | Model for roadmap extraction. Default `gemini-3.5-flash-lite` |
+| `GEMINI_MODEL_DETECT`  | No       | Model for subject detection (analyze). Default `GEMINI_MODEL` |
+| `UPSTASH_REDIS_REST_URL`   | Yes  | Upstash Redis URL (rate limits shared across instances)       |
+| `UPSTASH_REDIS_REST_TOKEN` | Yes  | Upstash Redis token                                            |
+| `JWT_SECRET`           | No       | Unused                                                         |
+| `GOOGLE_CLIENT_ID`     | No       | Google OAuth client id (Google sign-in not enabled yet)       |
+| `GOOGLE_CLIENT_SECRET` | No       | Google OAuth client secret                                     |
+| `ALLOW_EXPO_GO`        | No       | `"true"` to trust Expo Go URLs during development. Default `false` |
 | `ALLOWED_ORIGINS`      | No       | Comma-separated CORS origins. Default `http://localhost:3000` |
 | `PORT`                 | No       | Default `3000`                                                |
 | `NODE_ENV`             | No       | `development`, `production` or `test`. Default `production`. Set `development` locally to get stack traces in error responses |
@@ -71,7 +75,13 @@ All routes below are under `/api` and require a signed-in session.
 
 | Method | Path                                | Description                                                               |
 | ------ | ----------------------------------- | ------------------------------------------------------------------------- |
-| POST   | `/uploadfile`                     | Upload a syllabus PDF (form field `pdffile`) and generate a roadmap      |
+| POST   | `/syllabus/analyze`               | Upload a syllabus PDF (form field `pdffile`, ≤ 100 pages) and list the subjects in it |
+| POST   | `/syllabus/:uploadId/roadmaps`    | Generate one roadmap per chosen subject — body `{ "subjectIndexes": [0, 2] }` or `{ "custom": { "name": "...", "startPage": 3, "endPage": 5 } }` |
+| GET    | `/exam-groups`                    | List exam groups (roadmaps from one multi-subject PDF) with progress     |
+| GET    | `/exam-groups/:examGroupId`       | Get one exam group with its roadmaps                                      |
+| PATCH  | `/exam-groups/:examGroupId`       | Rename an exam group — body `{ "name": "..." }`                         |
+| DELETE | `/exam-groups/:examGroupId`       | Delete a group; `?deleteRoadmaps=true` also deletes its roadmaps         |
+| POST   | `/uploadfile`                     | Legacy: upload a PDF and generate a roadmap for its first subject        |
 | GET    | `/roadmap`                        | List the user's roadmaps                                                  |
 | GET    | `/roadmap/isfollowing`            | List roadmaps the user follows                                            |
 | GET    | `/roadmap/:roadmapId`             | Get one roadmap with its units, topics and subtopics                      |
@@ -87,6 +97,25 @@ All routes below are under `/api` and require a signed-in session.
 | DELETE | `/subTopics/:subTopicId`          | Delete a subtopic                                                         |
 
 Authentication routes are handled by better-auth under `/api/auth/*`.
+
+### Syllabus flow: analyze → pick → generate
+
+1. **Analyze.** `POST /syllabus/analyze` checks the page count locally, uploads the PDF to
+   the Gemini Files API (kept ~48 hours) and detects its subjects. Results are cached by the
+   PDF's SHA-256, so a PDF that anyone analyzed before returns instantly and doesn't count
+   toward the daily analysis limit (10/day per user). Response:
+   `{ uploadId, expiresAt, pageCount, fromCache, documentType, examOrBoard, language, subjects: [{ index, name, group, startPage, endPage }] }`.
+   Not a syllabus → 422.
+2. **Pick.** If there is one subject, the app can generate it directly; otherwise it shows
+   the list (grouped by `group`, e.g. "Semester 3", "Prelims").
+3. **Generate.** `POST /syllabus/:uploadId/roadmaps` extracts each chosen subject (up to 10,
+   3 in parallel) into its own roadmap, using the subject's page range as a hint. Roadmaps
+   from a multi-subject PDF share an exam group. Response:
+   `{ examGroupId, results: [{ index, name, group, status: "SUCCEEDED", roadmap, warnings } | { index, name, group, status: "FAILED", error }] }`.
+   Each subject counts toward the roadmap generation limit (10/hour per user).
+   An expired upload returns 410; upload the PDF again (the cached analysis makes that instant).
+
+Limits and the prompt version live in `src/config/syllabus.ts`.
 
 ## Project structure
 

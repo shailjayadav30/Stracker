@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { ApiError } from "@google/genai";
-import { llmCall } from "./llmCall.js";
+import { llmCall, LlmOutputTruncatedError } from "./llmCall.js";
+import type { LlmCallOptions } from "./llmCall.js";
 import AppError from "./error/appError.js";
 
 const MAX_ATTEMPTS = 3;
@@ -12,6 +13,7 @@ class InvalidLlmOutputError extends Error {}
 // Other 4xx API errors and schema mismatches are not retried (they won't fix themselves and cost money).
 function isRetryable(error: unknown) {
   if (error instanceof InvalidLlmOutputError) return true;
+  if (error instanceof LlmOutputTruncatedError) return false;
   if (error instanceof ApiError) return error.status === 429 || error.status >= 500;
   return true;
 }
@@ -19,12 +21,13 @@ function isRetryable(error: unknown) {
 export async function generateStructuredResponse<T>(
   prompt: string,
   schema: z.ZodType<T>,
+  options: LlmCallOptions = {},
 ): Promise<T> {
   let lastError: unknown;
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     try {
-      const response = await llmCall(prompt, schema);
+      const response = await llmCall(prompt, schema, options);
       let json: unknown;
       try {
         json = JSON.parse(response);
@@ -45,6 +48,9 @@ export async function generateStructuredResponse<T>(
     }
   }
 
+  if (lastError instanceof LlmOutputTruncatedError) {
+    throw new AppError(lastError.message, 422);
+  }
   throw new AppError(
     `Failed to generate a valid structured response: ${
       lastError instanceof Error ? lastError.message : String(lastError)

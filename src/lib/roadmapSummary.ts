@@ -1,5 +1,6 @@
 import prisma from "./db.js";
 import type { Prisma } from "../generated/prisma/client.js";
+import { toApiDocumentType } from "./syllabus/documentType.js";
 
 type ProgressRow = {
   roadmapId: string;
@@ -25,6 +26,10 @@ export async function listRoadmapSummaries(
       id: true,
       name: true,
       isFollowing: true,
+      documentType: true,
+      examOrBoard: true,
+      subjectGroup: true,
+      examGroupId: true,
       createdAt: true,
       updatedAt: true,
       _count: { select: { units: true } },
@@ -50,12 +55,13 @@ export async function listRoadmapSummaries(
     : [];
   const progressById = new Map(progressRows.map((p) => [p.roadmapId, p]));
 
-  const roadmaps = page.map(({ _count, ...roadmap }) => {
+  const roadmaps = page.map(({ _count, documentType, ...roadmap }) => {
     const p = progressById.get(roadmap.id);
     const totalTopics = p?.totalTopics ?? 0;
     const completedTopics = p?.completedTopics ?? 0;
     return {
       ...roadmap,
+      documentType: toApiDocumentType(documentType),
       unitCount: _count.units,
       progress: {
         totalTopics,

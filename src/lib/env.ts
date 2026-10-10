@@ -12,6 +12,8 @@ const envSchema = z.object({
   BETTER_AUTH_URL: z.url(),
   GEMINI_API_KEY: z.string().min(1),
   GEMINI_MODEL: z.string().min(1).default("gemini-3.5-flash-lite"),
+  // Optional cheaper model for subject detection (pass 1); defaults to GEMINI_MODEL
+  GEMINI_MODEL_DETECT: z.string().min(1).optional(),
   JWT_SECRET: z.string().optional(),
   ALLOWED_ORIGINS: z.string().default("http://localhost:3000"),
   GOOGLE_CLIENT_ID: z.string().optional(),

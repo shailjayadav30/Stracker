@@ -4,9 +4,9 @@ import { RoadmapSchema } from "../validationSchema/roadmapSchema.js";
 import AppError from "../lib/error/appError.js";
 import { generateStructuredResponse } from "../lib/llmRetry.js";
 import { buildUserPrompt } from "../lib/prompt/userPrompt.js";
-import prisma from "../lib/db.js";
-import { roadmapTree } from "../lib/roadmapTree.js";
 import { getUserId } from "../middleware/authmiddleware.js";
+import { assertPdfUpload } from "../lib/pdfInfo.js";
+import { saveRoadmap } from "../lib/syllabus/saveRoadmap.js";
 
 const MAX_PROMPT_TEXT_CHARS = 20_000;
 
@@ -29,16 +29,7 @@ export const uploadfile = async (req: Request, res: Response) => {
   const userId = getUserId(req);
 
   // 1. File validation
-  if (!req.file) {
-    throw new AppError("No file uploaded", 400);
-  }
-  if (req.file.mimetype !== "application/pdf") {
-    throw new AppError("Uploaded file must be a PDF", 400);
-  }
-  const pdfBuffer = req.file.buffer;
-  if (pdfBuffer.subarray(0, 5).toString("latin1") !== "%PDF-") {
-    throw new AppError("File is not a valid PDF", 400);
-  }
+  const pdfBuffer = assertPdfUpload(req.file);
 
   // 2. Extract PDF text
   let rawText: string;
@@ -71,36 +62,14 @@ export const uploadfile = async (req: Request, res: Response) => {
   // Fall back to the file name if the model found content but no title
   const roadmapName =
     roadmapData.name.trim() ||
-    req.file.originalname.replace(/\.pdf$/i, "").trim() ||
+    req.file?.originalname.replace(/\.pdf$/i, "").trim() ||
     "Untitled roadmap";
 
   // 4. Save to database
-  const createdRoadmap = await prisma.roadmap.create({
-    data: {
-      name: roadmapName,
-      userId,
-      units: {
-        // position preserves the syllabus order extracted from the PDF
-        create: roadmapData.units.map((unit, unitIndex) => ({
-          name: unit.name,
-          position: unitIndex,
-          topics: {
-            create: unit.topics.map((topic, topicIndex) => ({
-              name: topic.name,
-              position: topicIndex,
-              subTopics: {
-                create: topic.subTopics.map((subTopic, subTopicIndex) => ({
-                  name: subTopic,
-                  position: subTopicIndex,
-                })),
-              },
-            })),
-          },
-        })),
-      },
-    },
-    include: roadmapTree,
-  });
+  const createdRoadmap = await saveRoadmap(
+    { name: roadmapName, units: roadmapData.units },
+    { userId },
+  );
 
   res.status(201).json({
     success: true,

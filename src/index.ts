@@ -8,6 +8,7 @@ import { auth } from "./lib/auth.js";
 import prisma from "./lib/db.js";
 import globalErrorHandler from "./middleware/errormiddleware.js";
 import fileUpload from "./routes/fileUploadRoute.js";
+import syllabus from "./routes/syllabusRoute.js";
 import AppError from "./lib/error/appError.js";
 
 const app = express();
@@ -40,6 +41,7 @@ app.get("/health", async (_req: Request, res: Response) => {
 });
 
 app.use("/api", fileUpload);
+app.use("/api", syllabus);
 app.use((req: Request, _res: Response, next: NextFunction) => {
   next(new AppError(`Route ${req.originalUrl} not found`, 404));
 });
