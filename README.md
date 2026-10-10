@@ -77,7 +77,7 @@ All routes below are under `/api` and require a signed-in session.
 | ------ | ----------------------------------- | ------------------------------------------------------------------------- |
 | POST   | `/syllabus/analyze`               | Upload a syllabus PDF (form field `pdffile`, ≤ 100 pages) and list the subjects in it |
 | POST   | `/syllabus/:uploadId/roadmaps`    | Generate one roadmap per chosen subject — body `{ "subjectIndexes": [0, 2] }` or `{ "custom": { "name": "...", "startPage": 3, "endPage": 5 } }` |
-| GET    | `/exam-groups`                    | List exam groups (roadmaps from one multi-subject PDF) with progress     |
+| GET    | `/exam-groups`                    | List exam groups (roadmaps from one multi-subject PDF) with progress, plus every subject detected in the PDF (`subjects[].roadmapId` is set once created; `uploadId` + `canGenerate` to create the rest) |
 | GET    | `/exam-groups/:examGroupId`       | Get one exam group with its roadmaps                                      |
 | PATCH  | `/exam-groups/:examGroupId`       | Rename an exam group — body `{ "name": "..." }`                         |
 | DELETE | `/exam-groups/:examGroupId`       | Delete a group; `?deleteRoadmaps=true` also deletes its roadmaps         |

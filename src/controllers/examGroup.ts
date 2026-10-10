@@ -3,6 +3,8 @@ import prisma from "../lib/db.js";
 import AppError from "../lib/error/appError.js";
 import { getUserId } from "../middleware/authmiddleware.js";
 import { listRoadmapSummaries } from "../lib/roadmapSummary.js";
+import { StoredSubjectsSchema } from "../lib/syllabus/analyze.js";
+import type { Prisma } from "../generated/prisma/client.js";
 import {
   deleteExamGroupQuerySchema,
   examGroupParamsSchema,
@@ -20,17 +22,54 @@ const groupFields = {
   updatedAt: true,
 } as const;
 
-// Group with its roadmap summaries and combined progress
-async function withRoadmaps<G extends { id: string }>(group: G, userId: string) {
+// Plus the upload, to list every subject detected in the group's PDF
+const groupDetailFields = {
+  ...groupFields,
+  upload: {
+    select: {
+      id: true,
+      expiresAt: true,
+      geminiFileName: true,
+      analysis: { select: { subjectsJson: true } },
+    },
+  },
+} as const satisfies Prisma.ExamGroupSelect;
+
+type GroupRow = Prisma.ExamGroupGetPayload<{ select: typeof groupDetailFields }>;
+
+// Group with its roadmap summaries, combined progress and all detected subjects
+async function withRoadmaps({ upload, ...group }: GroupRow, userId: string) {
   const { roadmaps } = await listRoadmapSummaries(
     { userId, examGroupId: group.id },
     { limit: MAX_ROADMAPS_PER_GROUP },
   );
   const totalTopics = roadmaps.reduce((n, r) => n + r.progress.totalTopics, 0);
   const completedTopics = roadmaps.reduce((n, r) => n + r.progress.completedTopics, 0);
+
+  // Generated roadmaps keep the subject's name and group, so match on those
+  // (two subjects can share a name, e.g. "General Studies" in Paper I and Paper II)
+  const key = (name: string, subjectGroup: string | null) =>
+    `${name}\u0000${subjectGroup ?? ""}`;
+  const roadmapIdByKey = new Map(
+    roadmaps.map((r) => [key(r.name, r.subjectGroup), r.id]),
+  );
+  const detected = upload?.analysis
+    ? StoredSubjectsSchema.parse(upload.analysis.subjectsJson)
+    : [];
+
   return {
     ...group,
+    // Send to POST /syllabus/:uploadId/roadmaps while canGenerate is true
+    uploadId: upload?.id ?? null,
+    canGenerate: Boolean(
+      upload?.geminiFileName && upload.expiresAt > new Date(),
+    ),
     roadmaps,
+    subjects: detected.map((subject, index) => ({
+      index,
+      ...subject,
+      roadmapId: roadmapIdByKey.get(key(subject.name, subject.group)) ?? null,
+    })),
     progress: {
       totalTopics,
       completedTopics,
@@ -45,7 +84,7 @@ export const getExamGroups = async (req: Request, res: Response) => {
   const groups = await prisma.examGroup.findMany({
     where: { userId },
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-    select: groupFields,
+    select: groupDetailFields,
   });
   const examGroups = await Promise.all(groups.map((g) => withRoadmaps(g, userId)));
 
@@ -58,7 +97,7 @@ export const getExamGroupById = async (req: Request, res: Response) => {
 
   const group = await prisma.examGroup.findUnique({
     where: { id: examGroupId, userId },
-    select: groupFields,
+    select: groupDetailFields,
   });
   if (!group) {
     throw new AppError("Exam group not found", 404);

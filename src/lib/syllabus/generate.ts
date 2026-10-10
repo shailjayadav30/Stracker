@@ -95,6 +95,22 @@ export async function generateRoadmaps({ userId, uploadId, body, res }: Generate
 
   // Roadmaps from a multi-subject PDF are grouped (e.g. "JEE Main 2026")
   let examGroupId = upload.examGroup?.id ?? null;
+  // Re-uploading the same PDF (e.g. after the old upload expired) adds to its existing
+  // group instead of starting a second one; the group then points at the new upload
+  if (!examGroupId && subjects.length > 1) {
+    const existing = await prisma.examGroup.findFirst({
+      where: { userId, upload: { pdfHash: upload.pdfHash } },
+      orderBy: { createdAt: "desc" },
+      select: { id: true },
+    });
+    if (existing) {
+      await prisma.examGroup.update({
+        where: { id: existing.id },
+        data: { uploadId: upload.id },
+      });
+      examGroupId = existing.id;
+    }
+  }
   if (!examGroupId && subjects.length > 1) {
     const group = await prisma.examGroup.upsert({
       where: { uploadId: upload.id },
