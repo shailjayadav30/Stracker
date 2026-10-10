@@ -13,17 +13,19 @@ datasource db {
 }
 
 model User {
-  id            String         @id @default(uuid())
+  id            String           @id @default(uuid())
   name          String
-  email         String         @unique
+  email         String           @unique
   image         String?
-  emailVerified Boolean        @default(false)
+  emailVerified Boolean          @default(false)
   roadmaps      Roadmap[]
   sessions      Session[]
   accounts      Account[]
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
   studySessions StudySession[]
+  uploads       SyllabusUpload[]
+  examGroups    ExamGroup[]
 
   @@map("user")
 }
@@ -85,10 +87,18 @@ model Roadmap {
   user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   units         Unit[]
   studySessions StudySession[]
+  // Set for roadmaps generated through analyze -> generate
+  documentType  DocumentType?
+  examOrBoard   String?
+  subjectGroup  String? // "Semester 3", "Prelims", ... from the analysis
+  examGroupId   String?
+  examGroup     ExamGroup?     @relation(fields: [examGroupId], references: [id], onDelete: SetNull)
+  promptVersion String?
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
 
   @@index([userId])
+  @@index([examGroupId])
 }
 
 model Unit {
@@ -96,6 +106,7 @@ model Unit {
   name          String
   // Order within the roadmap (syllabus order); createdAt can tie for rows created together
   position      Int            @default(0)
+  sourceLabel   String? // what the document called it: "Unit", "Chapter", "Module", ...
   roadmapId     String
   roadmap       Roadmap        @relation(fields: [roadmapId], references: [id], onDelete: Cascade)
   topics        Topic[]
@@ -142,7 +153,7 @@ model StudySession {
 
   plannedDuration   Int
   remainingDuration Int
-  duration          Int @default(0)                                                                                 
+  duration          Int @default(0)
 
   status StudySessionStatus
 
@@ -167,4 +178,66 @@ enum StudySessionStatus {
   PAUSED
   COMPLETED
   CANCELLED
+}
+
+enum DocumentType {
+  SCHOOL
+  COLLEGE
+  COMPETITIVE_EXAM
+  PROFESSIONAL
+  OTHER
+}
+
+// One uploaded PDF, per user. The PDF itself lives in the Gemini Files API until expiresAt.
+model SyllabusUpload {
+  id                String            @id @default(uuid())
+  userId            String
+  user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pdfHash           String
+  pageCount         Int
+  fileName          String?
+  geminiFileName    String? // "files/abc123"; null once deleted
+  geminiFileUri     String?
+  expiresAt         DateTime
+  analysisId        String?
+  analysis          SyllabusAnalysis? @relation(fields: [analysisId], references: [id], onDelete: SetNull)
+  analysisFromCache Boolean           @default(false)
+  examGroup         ExamGroup?
+  createdAt         DateTime          @default(now())
+
+  @@index([userId, createdAt])
+  @@index([expiresAt])
+}
+
+// Shared cache of pass-1 (subject detection) results, keyed by PDF content
+model SyllabusAnalysis {
+  id            String           @id @default(uuid())
+  pdfHash       String
+  promptVersion String
+  model         String
+  isSyllabus    Boolean
+  documentType  DocumentType?
+  examOrBoard   String?
+  language      String?
+  subjectsJson  Json // [{ name, group, startPage, endPage }]
+  uploads       SyllabusUpload[]
+  createdAt     DateTime         @default(now())
+
+  @@unique([pdfHash, promptVersion, model])
+}
+
+// Roadmaps generated from one multi-subject PDF, e.g. "JEE Main 2026" -> Physics, Chemistry, Maths
+model ExamGroup {
+  id          String          @id @default(uuid())
+  userId      String
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  examOrBoard String?
+  uploadId    String?         @unique
+  upload      SyllabusUpload? @relation(fields: [uploadId], references: [id], onDelete: SetNull)
+  roadmaps    Roadmap[]
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@index([userId])
 }
