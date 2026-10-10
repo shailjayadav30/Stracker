@@ -4,6 +4,7 @@ import multer from "multer";
 import { env } from "../lib/env.js";
 import AppError from "../lib/error/appError.js";
 import { Prisma } from "../generated/prisma/client.js";
+import { UPLOAD_LIMITS } from "../config/syllabus.js";
 
 // Turn known library errors into AppErrors with the right status code
 function normalizeError(err: unknown): unknown {
@@ -29,7 +30,9 @@ function normalizeError(err: unknown): unknown {
   if (err instanceof multer.MulterError) {
     const tooLarge = err.code === "LIMIT_FILE_SIZE";
     return new AppError(
-      tooLarge ? "File is too large (max 5 MB)" : err.message,
+      tooLarge
+        ? `File is too large (max ${UPLOAD_LIMITS.maxFileBytes / (1024 * 1024)} MB)`
+        : err.message,
       tooLarge ? 413 : 400,
     );
   }

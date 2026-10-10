@@ -3,6 +3,7 @@ import multer from "multer";
 
 import type { Request } from "express";
 import AppError from "../lib/error/appError.js";
+import { UPLOAD_LIMITS } from "../config/syllabus.js";
 const storage = multer.memoryStorage();
 
 const filefilter = (
@@ -20,7 +21,7 @@ const filefilter = (
 const upload = multer({
   storage: storage,
   fileFilter: filefilter,
-  limits: { fileSize: 5 * 1024 * 1024 },
+  limits: { fileSize: UPLOAD_LIMITS.maxFileBytes },
 });
 
 export default upload;
