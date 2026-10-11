@@ -39,6 +39,7 @@ export async function generateStructuredResponse<T>(
         return result.data;
       }
       lastError = result.error;
+      console.error("LLM response did not match the schema:", result.error);
       break;
     } catch (error) {
       lastError = error;
@@ -51,10 +52,12 @@ export async function generateStructuredResponse<T>(
   if (lastError instanceof LlmOutputTruncatedError) {
     throw new AppError(lastError.message, 422);
   }
+  // Provider errors can contain internal details (e.g. Gemini's JSON error body); they are
+  // logged above, so users only get a plain message
   throw new AppError(
-    `Failed to generate a valid structured response: ${
-      lastError instanceof Error ? lastError.message : String(lastError)
-    }`,
+    lastError instanceof ApiError
+      ? "The AI service couldn't process this request right now. Please try again."
+      : "The AI returned an invalid response. Please try again.",
     502,
   );
 }
