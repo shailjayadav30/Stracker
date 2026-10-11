@@ -16,6 +16,10 @@ export const nameBodySchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(200),
 });
 
+export const profileBodySchema = z.object({
+  name: z.string().trim().min(1, "Name is required").max(60, "Name is too long"),
+});
+
 export const completeBodySchema = z.object({ completed: z.boolean() });
 
 export const followBodySchema = z.object({ isFollowing: z.boolean() });

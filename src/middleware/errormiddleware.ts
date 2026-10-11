@@ -5,6 +5,7 @@ import { env } from "../lib/env.js";
 import AppError from "../lib/error/appError.js";
 import { Prisma } from "../generated/prisma/client.js";
 import { UPLOAD_LIMITS } from "../config/syllabus.js";
+import { MAX_IMAGE_BYTES } from "./fileUploadmiddleware.js";
 
 // Turn known library errors into AppErrors with the right status code
 function normalizeError(err: unknown): unknown {
@@ -29,10 +30,10 @@ function normalizeError(err: unknown): unknown {
 
   if (err instanceof multer.MulterError) {
     const tooLarge = err.code === "LIMIT_FILE_SIZE";
+    // Profile photos ("avatar") have their own, smaller limit than syllabus PDFs
+    const maxBytes = err.field === "avatar" ? MAX_IMAGE_BYTES : UPLOAD_LIMITS.maxFileBytes;
     return new AppError(
-      tooLarge
-        ? `File is too large (max ${UPLOAD_LIMITS.maxFileBytes / (1024 * 1024)} MB)`
-        : err.message,
+      tooLarge ? `File is too large (max ${maxBytes / (1024 * 1024)} MB)` : err.message,
       tooLarge ? 413 : 400,
     );
   }
