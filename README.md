@@ -100,6 +100,9 @@ All routes below are under `/api` and require a signed-in session.
 | PATCH  | `/topics/:topicId/complete`       | Mark a topic and its subtopics completed — body `{ "completed": true }` |
 | PATCH  | `/subTopics/:subtopicId`          | Rename a subtopic                                                         |
 | DELETE | `/subTopics/:subTopicId`          | Delete a subtopic                                                         |
+| PATCH  | `/profile`                        | Change the display name — body `{ "name": "..." }` (1–60 characters)    |
+| POST   | `/profile/avatar`                 | Upload a profile photo (form field `avatar`: JPEG, PNG, WebP or HEIC, ≤ 4 MB); stored in Cloudinary as a 512×512 face crop (needs `CLOUDINARY_URL`) |
+| DELETE | `/profile/avatar`                 | Remove the profile photo                                                  |
 | GET    | `/study-sessions/active`          | The open (running or paused) study session, or `null`                     |
 | POST   | `/study-sessions`                 | Start a stopwatch session on a roadmap — body `{ "roadmapId": "..." }` (one open session at a time; 409 otherwise) |
 | POST   | `/study-sessions/:sessionId/pause` | Pause the stopwatch                                                     |

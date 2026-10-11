@@ -1,5 +1,4 @@
-import { v2 as cloudinary } from "cloudinary";
-import { env } from "../env.js";
+import { cloudinary, configureCloudinary, toCloudinaryError as toError } from "./cloudinaryConfig.js";
 import { StoredPdfMissingError, type PdfStorage } from "./types.js";
 
 // PDFs are stored as "authenticated" image assets ("pdfs/<hash>", format pdf): never
@@ -11,16 +10,7 @@ const ASSET = { resource_type: "image", type: "authenticated" } as const;
 const PAGE_WIDTH = 1200;
 
 export function createCloudinaryStorage(): PdfStorage | null {
-  if (!env.CLOUDINARY_URL) return null;
-
-  // cloudinary://<api_key>:<api_secret>@<cloud_name>
-  const url = new URL(env.CLOUDINARY_URL);
-  cloudinary.config({
-    cloud_name: url.hostname,
-    api_key: decodeURIComponent(url.username),
-    api_secret: decodeURIComponent(url.password),
-    secure: true,
-  });
+  if (!configureCloudinary()) return null;
 
   const downloadUrl = (publicId: string, ttlSeconds: number) =>
     cloudinary.utils.private_download_url(publicId, "pdf", {
@@ -74,11 +64,4 @@ export function createCloudinaryStorage(): PdfStorage | null {
       );
     },
   };
-}
-
-// The SDK rejects with plain objects ({ message, http_code }), not Errors
-function toError(error: unknown) {
-  if (error instanceof Error) return error;
-  const e = error as { message?: string; http_code?: number };
-  return new Error(`Cloudinary upload failed (${e.http_code ?? "?"}): ${e.message ?? "unknown"}`);
 }

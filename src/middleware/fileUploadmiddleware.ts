@@ -25,3 +25,16 @@ const upload = multer({
 });
 
 export default upload;
+
+// Profile photos. Vercel rejects request bodies over 4.5 MB, so stay under that.
+const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
+export const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
+
+export const imageUpload = multer({
+  storage,
+  fileFilter: (_req, file, cb) => {
+    if (IMAGE_TYPES.includes(file.mimetype)) cb(null, true);
+    else cb(new AppError("Only JPEG, PNG, WebP or HEIC images are allowed", 400));
+  },
+  limits: { fileSize: MAX_IMAGE_BYTES },
+});
