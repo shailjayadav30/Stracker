@@ -20,11 +20,15 @@ export const completeBodySchema = z.object({ completed: z.boolean() });
 
 export const followBodySchema = z.object({ isFollowing: z.boolean() });
 
-export const studySessionBodySchema = z.object({
-  roadmapId: z.uuid(),
-  unitId: z.uuid(),
-  plannedDuration: z.number().int().positive(),
-  startedAt: z.coerce.date(),
+export const sessionParamsSchema = z.object({ sessionId: z.uuid() });
+export const startSessionBodySchema = z.object({ roadmapId: z.uuid() });
+
+// IANA zone from the device ("Asia/Kolkata"); days for stats and streaks are counted in it
+const timeZone = z.string().trim().min(1).max(64).default("UTC");
+export const endSessionBodySchema = z.object({ timeZone });
+export const progressQuerySchema = z.object({
+  timeZone,
+  days: z.coerce.number().int().min(1).max(90).default(7),
 });
 
 export const uploadParamsSchema = z.object({ uploadId: z.uuid() });
