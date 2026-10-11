@@ -100,6 +100,21 @@ All routes below are under `/api` and require a signed-in session.
 | PATCH  | `/topics/:topicId/complete`       | Mark a topic and its subtopics completed — body `{ "completed": true }` |
 | PATCH  | `/subTopics/:subtopicId`          | Rename a subtopic                                                         |
 | DELETE | `/subTopics/:subTopicId`          | Delete a subtopic                                                         |
+| GET    | `/study-sessions/active`          | The open (running or paused) study session, or `null`                     |
+| POST   | `/study-sessions`                 | Start a stopwatch session on a roadmap — body `{ "roadmapId": "..." }` (one open session at a time; 409 otherwise) |
+| POST   | `/study-sessions/:sessionId/pause` | Pause the stopwatch                                                     |
+| POST   | `/study-sessions/:sessionId/resume` | Resume it                                                              |
+| POST   | `/study-sessions/:sessionId/end`  | End and save it — body `{ "timeZone": "Asia/Kolkata" }`; returns the summary and `streak` |
+| DELETE | `/study-sessions/:sessionId`      | Discard an open session                                                   |
+| GET    | `/progress?timeZone=&days=7`      | Today's totals, the last `days` days, `streak` (`current`, `longest`, `studiedToday`), `studyDays` and recent sessions |
+
+### Study sessions and streaks
+
+A session is a stopwatch on one roadmap. While it is open (running or paused), every topic or
+subtopic ticked on that roadmap is logged to it, and unticking removes it; ticks with no open
+session only update the roadmap. Ending a session saves its time (capped at 12 hours) on the
+user's local day. A day counts toward the streak once at least 1 minute was studied in it,
+ticked items or not; the current streak lasts until a whole day passes without study.
 
 Authentication routes are handled by better-auth under `/api/auth/*`.
 

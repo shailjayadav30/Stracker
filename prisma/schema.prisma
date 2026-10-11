@@ -107,17 +107,16 @@ model Roadmap {
 }
 
 model Unit {
-  id            String         @id @default(uuid())
-  name          String
+  id          String   @id @default(uuid())
+  name        String
   // Order within the roadmap (syllabus order); createdAt can tie for rows created together
-  position      Int            @default(0)
-  sourceLabel   String? // what the document called it: "Unit", "Chapter", "Module", ...
-  roadmapId     String
-  roadmap       Roadmap        @relation(fields: [roadmapId], references: [id], onDelete: Cascade)
-  topics        Topic[]
-  studySessions StudySession[]
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  position    Int      @default(0)
+  sourceLabel String? // what the document called it: "Unit", "Chapter", "Module", ...
+  roadmapId   String
+  roadmap     Roadmap  @relation(fields: [roadmapId], references: [id], onDelete: Cascade)
+  topics      Topic[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@index([roadmapId, position])
 }
@@ -149,33 +148,32 @@ model SubTopic {
   @@index([topicId, position])
 }
 
+// A timed study session on one roadmap (stopwatch). A user has at most one open
+// (ACTIVE or PAUSED) session; it counts toward stats and streaks once COMPLETED.
+// Discarded sessions are deleted.
 model StudySession {
-  id String @id @default(uuid())
+  id            String             @id @default(uuid())
+  userId        String
+  user          User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Kept (null) when the roadmap is deleted, so past days still count toward streaks
+  roadmapId     String?
+  roadmap       Roadmap?           @relation(fields: [roadmapId], references: [id], onDelete: SetNull)
+  roadmapName   String // copied at start, shown in history even after the roadmap is gone
+  status        StudySessionStatus
+  // Seconds studied before the current running stretch; while ACTIVE add now - resumedAt
+  activeSeconds Int                @default(0)
+  resumedAt     DateTime? // set while ACTIVE (running), null while paused or ended
+  startedAt     DateTime           @default(now())
+  endedAt       DateTime?
+  // The user's local calendar day the session ended on ("2026-10-12"), for daily stats and streaks
+  endedOnDay    String?
+  items         StudySessionItem[]
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
 
-  userId    String
-  roadmapId String
-  unitId    String
-
-  plannedDuration   Int
-  remainingDuration Int
-  duration          Int @default(0)
-
-  status StudySessionStatus
-
-  startedAt DateTime
-  endedAt   DateTime?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  roadmap Roadmap @relation(fields: [roadmapId], references: [id], onDelete: Cascade)
-  unit    Unit    @relation(fields: [unitId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@index([unitId])
+  @@index([userId, status])
+  @@index([userId, endedOnDay])
   @@index([roadmapId])
-  @@index([userId, startedAt])
 }
 
 enum StudySessionStatus {
@@ -183,6 +181,25 @@ enum StudySessionStatus {
   PAUSED
   COMPLETED
   CANCELLED
+}
+
+enum StudyItemKind {
+  TOPIC
+  SUBTOPIC
+}
+
+// A topic or subtopic ticked off while a session was open. No foreign key to the
+// topic, so history keeps counting it even if the topic is deleted later.
+model StudySessionItem {
+  id          String        @id @default(uuid())
+  sessionId   String
+  session     StudySession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  kind        StudyItemKind
+  itemId      String
+  name        String
+  completedAt DateTime      @default(now())
+
+  @@unique([sessionId, kind, itemId])
 }
 
 enum DocumentType {

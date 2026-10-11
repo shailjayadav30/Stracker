@@ -4,6 +4,7 @@ import prisma from "../lib/db.js";
 import { roadmapTree } from "../lib/roadmapTree.js";
 import { listRoadmapSummaries } from "../lib/roadmapSummary.js";
 import { getUserId } from "../middleware/authmiddleware.js";
+import { logSessionItems, type CompletedItem } from "../lib/studySession.js";
 import {
   completeBodySchema,
   followBodySchema,
@@ -160,21 +161,49 @@ export const editSubTopicName = async (req: Request, res: Response) => {
   // Response key stays `topic` for API compatibility
   res.status(200).json({ message: "SubTopic updated successfully", topic });
 };
+// Session items for a topic and its subtopics. Ticking logs only what changes to done;
+// unticking removes everything under it from the open session.
+function topicItems(
+  topic: { id: string; name: string; completed: boolean },
+  subTopics: { id: string; name: string; completed: boolean }[],
+  completed: boolean,
+): CompletedItem[] {
+  const changes = (item: { completed: boolean }) => !completed || !item.completed;
+  return [
+    ...(changes(topic) ? [{ kind: "TOPIC" as const, itemId: topic.id, name: topic.name }] : []),
+    ...subTopics
+      .filter(changes)
+      .map((s) => ({ kind: "SUBTOPIC" as const, itemId: s.id, name: s.name })),
+  ];
+}
+
+const itemFields = { id: true, name: true, completed: true } as const;
+
 export const completeUnit = async (req: Request, res: Response) => {
   const userId = getUserId(req);
   const { unitId } = unitParamsSchema.parse(req.params);
   const { completed } = completeBodySchema.parse(req.body);
 
   await prisma.$transaction(async (tx) => {
-    await tx.unit.findUniqueOrThrow({
+    const unit = await tx.unit.findFirstOrThrow({
       where: { id: unitId, roadmap: { userId } },
-      select: { id: true },
+      select: {
+        roadmapId: true,
+        topics: { select: { ...itemFields, subTopics: { select: itemFields } } },
+      },
     });
     await tx.topic.updateMany({ where: { unitId }, data: { completed } });
     await tx.subTopic.updateMany({
       where: { topic: { unitId } },
       data: { completed },
     });
+    await logSessionItems(
+      tx,
+      userId,
+      unit.roadmapId,
+      unit.topics.flatMap(({ subTopics, ...topic }) => topicItems(topic, subTopics, completed)),
+      completed,
+    );
   });
 
   res.status(200).json({ message: "Unit updated successfully" });
@@ -186,14 +215,29 @@ export const completeTopic = async (req: Request, res: Response) => {
   const { completed } = completeBodySchema.parse(req.body);
 
   const topic = await prisma.$transaction(async (tx) => {
-    const updated = await tx.topic.update({
+    const before = await tx.topic.findFirstOrThrow({
       where: { id: topicId, unit: { roadmap: { userId } } },
+      select: {
+        ...itemFields,
+        unit: { select: { roadmapId: true } },
+        subTopics: { select: itemFields },
+      },
+    });
+    const updated = await tx.topic.update({
+      where: { id: topicId },
       data: { completed },
     });
     await tx.subTopic.updateMany({
       where: { topicId },
       data: { completed },
     });
+    await logSessionItems(
+      tx,
+      userId,
+      before.unit.roadmapId,
+      topicItems(before, before.subTopics, completed),
+      completed,
+    );
     return updated;
   });
 
@@ -206,18 +250,37 @@ export const completeSubTopic = async (req: Request, res: Response) => {
   const { completed } = completeBodySchema.parse(req.body);
 
   const subTopic = await prisma.$transaction(async (tx) => {
-    const updated = await tx.subTopic.update({
+    const before = await tx.subTopic.findFirstOrThrow({
       where: { id: subTopicId, topic: { unit: { roadmap: { userId } } } },
+      select: {
+        ...itemFields,
+        topic: { select: { ...itemFields, unit: { select: { roadmapId: true } } } },
+      },
+    });
+    const updated = await tx.subTopic.update({
+      where: { id: subTopicId },
       data: { completed },
     });
     // A topic counts as done once all of its subtopics are
     const remaining = await tx.subTopic.count({
       where: { topicId: updated.topicId, completed: false },
     });
+    const topicDone = remaining === 0;
     await tx.topic.update({
       where: { id: updated.topicId },
-      data: { completed: remaining === 0 },
+      data: { completed: topicDone },
     });
+
+    const { topic } = before;
+    const items: CompletedItem[] = [];
+    if (!completed || !before.completed) {
+      items.push({ kind: "SUBTOPIC", itemId: before.id, name: before.name });
+    }
+    // The topic is logged when this tick finishes it, and removed when an untick reopens it
+    if (completed ? topicDone && !topic.completed : topic.completed) {
+      items.push({ kind: "TOPIC", itemId: topic.id, name: topic.name });
+    }
+    await logSessionItems(tx, userId, topic.unit.roadmapId, items, completed);
     return updated;
   });
 
