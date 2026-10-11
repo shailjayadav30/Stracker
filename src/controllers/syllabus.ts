@@ -4,9 +4,11 @@ import { assertPdfUpload } from "../lib/pdfInfo.js";
 import { analyzeSyllabus } from "../lib/syllabus/analyze.js";
 import { generateRoadmaps } from "../lib/syllabus/generate.js";
 import {
+  analyzeBodySchema,
   generateBodySchema,
   uploadParamsSchema,
 } from "../validationSchema/requestSchemas.js";
+import { assertSpace, roadmapIdsBySubject } from "../lib/spaces.js";
 import { toApiDocumentType } from "../lib/syllabus/documentType.js";
 import {
   canReadStoredPdf,
@@ -16,17 +18,21 @@ import {
 import prisma from "../lib/db.js";
 import AppError from "../lib/error/appError.js";
 
-// POST /api/syllabus/analyze (multipart "pdffile"): list the subjects in a PDF
+// POST /api/syllabus/analyze (multipart "pdffile" + "spaceId"): list the subjects in a PDF
 export const analyze = async (req: Request, res: Response) => {
   const userId = getUserId(req);
   const pdf = assertPdfUpload(req.file);
+  const { spaceId } = analyzeBodySchema.parse(req.body);
+  await assertSpace(userId, spaceId);
 
   const { upload, analysis, subjects } = await analyzeSyllabus({
     userId,
+    spaceId,
     pdf,
     fileName: req.file?.originalname ?? "syllabus.pdf",
     res,
   });
+  const roadmapIdFor = await roadmapIdsBySubject(spaceId);
 
   res.status(200).json({
     uploadId: upload.id,
@@ -38,8 +44,13 @@ export const analyze = async (req: Request, res: Response) => {
     documentType: toApiDocumentType(analysis.documentType),
     examOrBoard: analysis.examOrBoard,
     language: analysis.language,
-    // Send `index` back in POST /syllabus/:uploadId/roadmaps to pick subjects
-    subjects: subjects.map((subject, index) => ({ index, ...subject })),
+    // Send `index` back in POST /syllabus/:uploadId/roadmaps to pick subjects;
+    // roadmapId is set when the space already has a roadmap for that subject
+    subjects: subjects.map((subject, index) => ({
+      index,
+      ...subject,
+      roadmapId: roadmapIdFor(subject.name, subject.group),
+    })),
   });
 };
 

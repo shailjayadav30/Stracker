@@ -16,7 +16,7 @@ type RoadmapMeta = {
   documentType?: DocumentType | null;
   examOrBoard?: string | null;
   subjectGroup?: string | null;
-  examGroupId?: string | null;
+  spaceId: string;
   promptVersion?: string | null;
   uploadId?: string | null;
 };
@@ -30,7 +30,7 @@ export function saveRoadmap(content: RoadmapContent, meta: RoadmapMeta) {
       documentType: meta.documentType ?? null,
       examOrBoard: meta.examOrBoard ?? null,
       subjectGroup: meta.subjectGroup ?? null,
-      examGroupId: meta.examGroupId ?? null,
+      spaceId: meta.spaceId,
       promptVersion: meta.promptVersion ?? null,
       uploadId: meta.uploadId ?? null,
       units: {

@@ -28,7 +28,13 @@ export const studySessionBodySchema = z.object({
 });
 
 export const uploadParamsSchema = z.object({ uploadId: z.uuid() });
-export const examGroupParamsSchema = z.object({ examGroupId: z.uuid() });
+export const spaceParamsSchema = z.object({ spaceId: z.uuid() });
+
+// Multipart field sent with the PDF to POST /syllabus/analyze
+export const analyzeBodySchema = z.object({ spaceId: z.uuid() });
+
+// Legacy POST /uploadfile: without a space the roadmap goes to "My roadmaps"
+export const uploadFileBodySchema = z.object({ spaceId: z.uuid().optional() });
 
 // Either pick subjects from the analysis (by their index), or name one that wasn't detected
 export const generateBodySchema = z.union([
@@ -47,8 +53,3 @@ export const generateBodySchema = z.union([
   }),
 ]);
 export type GenerateBody = z.infer<typeof generateBodySchema>;
-
-export const deleteExamGroupQuerySchema = z.object({
-  // true: delete the group's roadmaps too; false: keep them as ungrouped roadmaps
-  deleteRoadmaps: z.stringbool().default(false),
-});

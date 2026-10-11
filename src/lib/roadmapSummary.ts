@@ -29,7 +29,7 @@ export async function listRoadmapSummaries(
       documentType: true,
       examOrBoard: true,
       subjectGroup: true,
-      examGroupId: true,
+      spaceId: true,
       createdAt: true,
       updatedAt: true,
       _count: { select: { units: true } },
