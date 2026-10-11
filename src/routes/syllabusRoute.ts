@@ -1,7 +1,7 @@
 import { Router } from "express";
 import upload from "../middleware/fileUploadmiddleware.js";
 import { requireAuth } from "../middleware/authmiddleware.js";
-import { analyze, generate } from "../controllers/syllabus.js";
+import { analyze, generate, getUploadPdf } from "../controllers/syllabus.js";
 import {
   deleteExamGroup,
   getExamGroupById,
@@ -14,6 +14,7 @@ const router = Router();
 // Analyze -> pick -> generate. Rate limits are applied inside (cache hits are free).
 router.post("/syllabus/analyze", requireAuth, upload.single("pdffile"), analyze);
 router.post("/syllabus/:uploadId/roadmaps", requireAuth, generate);
+router.get("/syllabus/uploads/:uploadId/pdf", requireAuth, getUploadPdf);
 
 router.get("/exam-groups", requireAuth, getExamGroups);
 router.get("/exam-groups/:examGroupId", requireAuth, getExamGroupById);

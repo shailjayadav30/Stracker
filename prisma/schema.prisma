@@ -80,11 +80,11 @@ model Verification {
 }
 
 model Roadmap {
-  id            String         @id @default(uuid())
+  id            String          @id @default(uuid())
   name          String
   userId        String
-  isFollowing   Boolean        @default(false)
-  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  isFollowing   Boolean         @default(false)
+  user          User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   units         Unit[]
   studySessions StudySession[]
   // Set for roadmaps generated through analyze -> generate
@@ -92,13 +92,17 @@ model Roadmap {
   examOrBoard   String?
   subjectGroup  String? // "Semester 3", "Prelims", ... from the analysis
   examGroupId   String?
-  examGroup     ExamGroup?     @relation(fields: [examGroupId], references: [id], onDelete: SetNull)
+  examGroup     ExamGroup?      @relation(fields: [examGroupId], references: [id], onDelete: SetNull)
   promptVersion String?
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  // The PDF this roadmap was generated from (to show it in the app)
+  uploadId      String?
+  upload        SyllabusUpload? @relation(fields: [uploadId], references: [id], onDelete: SetNull)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
 
   @@index([userId])
   @@index([examGroupId])
+  @@index([uploadId])
 }
 
 model Unit {
@@ -196,13 +200,17 @@ model SyllabusUpload {
   pdfHash           String
   pageCount         Int
   fileName          String?
-  geminiFileName    String? // "files/abc123"; null once deleted
+  // Permanent copy in S3-compatible object storage, shared by uploads with the same pdfHash
+  storageKey        String?
+  // Temporary copy in the Gemini Files API; re-uploaded from storage after expiresAt
+  geminiFileName    String? // "files/abc123"; null once unusable
   geminiFileUri     String?
-  expiresAt         DateTime
+  expiresAt         DateTime // when the Gemini copy expires
   analysisId        String?
   analysis          SyllabusAnalysis? @relation(fields: [analysisId], references: [id], onDelete: SetNull)
   analysisFromCache Boolean           @default(false)
   examGroup         ExamGroup?
+  roadmaps          Roadmap[]
   createdAt         DateTime          @default(now())
 
   @@index([userId, createdAt])

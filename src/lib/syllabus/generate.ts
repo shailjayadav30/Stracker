@@ -6,6 +6,7 @@ import { mapWithConcurrency } from "../mapWithConcurrency.js";
 import { buildExtractPrompt, type ExtractTarget } from "../prompt/extractPrompt.js";
 import type { GeminiFileRef } from "../geminiFiles.js";
 import { saveRoadmap } from "./saveRoadmap.js";
+import { getGeminiFileForUpload } from "./uploadFile.js";
 import { StoredSubjectsSchema } from "./analyze.js";
 import { consumeGenerationQuota } from "../../middleware/rateLimit.js";
 import { AI_MODELS, GENERATE_LIMITS, PROMPT_VERSION } from "../../config/syllabus.js";
@@ -48,12 +49,6 @@ export async function generateRoadmaps({ userId, uploadId, body, res }: Generate
   if (!upload || !upload.analysis) {
     throw new AppError("Upload not found", 404);
   }
-  if (!upload.geminiFileName || !upload.geminiFileUri || upload.expiresAt <= new Date()) {
-    throw new AppError(
-      "This upload has expired. Please upload the PDF again.",
-      410,
-    );
-  }
   const { analysis } = upload;
   const subjects = StoredSubjectsSchema.parse(analysis.subjectsJson);
 
@@ -90,6 +85,9 @@ export async function generateRoadmaps({ userId, uploadId, body, res }: Generate
       },
     ];
   }
+
+  // Before charging the quota: an unavailable upload (410) shouldn't use up generations
+  const file = await getGeminiFileForUpload(upload);
 
   await consumeGenerationQuota(userId, targets.length, res);
 
@@ -128,12 +126,6 @@ export async function generateRoadmaps({ userId, uploadId, body, res }: Generate
     examGroupId = group.id;
   }
 
-  const file: GeminiFileRef = {
-    name: upload.geminiFileName,
-    uri: upload.geminiFileUri,
-    mimeType: "application/pdf",
-  };
-
   const results = await mapWithConcurrency(
     targets,
     GENERATE_LIMITS.concurrency,
@@ -158,6 +150,7 @@ export async function generateRoadmaps({ userId, uploadId, body, res }: Generate
             subjectGroup: target.group,
             examGroupId,
             promptVersion: PROMPT_VERSION,
+            uploadId: upload.id,
           },
         );
         return {
