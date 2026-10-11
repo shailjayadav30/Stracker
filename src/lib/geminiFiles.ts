@@ -1,4 +1,4 @@
-import { FileState } from "@google/genai";
+import { ApiError, FileState } from "@google/genai";
 import { ai } from "./agent.js";
 import AppError from "./error/appError.js";
 import { UPLOAD_LIMITS } from "../config/syllabus.js";
@@ -37,6 +37,20 @@ export async function uploadPdfToGemini(pdf: Buffer, displayName: string) {
     mimeType: "application/pdf",
   };
   return { ref, expiresAt };
+}
+
+// false when Gemini no longer has the file, or it was uploaded with a different API key
+// (files are private to the Google project that uploaded them)
+export async function isGeminiFileUsable(name: string) {
+  try {
+    const file = await ai.files.get({ name });
+    return file.state === FileState.ACTIVE;
+  } catch (error) {
+    if (error instanceof ApiError && (error.status === 403 || error.status === 404)) {
+      return false;
+    }
+    throw error;
+  }
 }
 
 // Best effort: Gemini also expires files on its own

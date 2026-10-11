@@ -4,6 +4,7 @@ import AppError from "../lib/error/appError.js";
 import { getUserId } from "../middleware/authmiddleware.js";
 import { listRoadmapSummaries } from "../lib/roadmapSummary.js";
 import { StoredSubjectsSchema } from "../lib/syllabus/analyze.js";
+import { canGenerateFrom } from "../lib/syllabus/uploadFile.js";
 import type { Prisma } from "../generated/prisma/client.js";
 import {
   deleteExamGroupQuerySchema,
@@ -30,6 +31,7 @@ const groupDetailFields = {
       id: true,
       expiresAt: true,
       geminiFileName: true,
+      storageKey: true,
       analysis: { select: { subjectsJson: true } },
     },
   },
@@ -61,9 +63,7 @@ async function withRoadmaps({ upload, ...group }: GroupRow, userId: string) {
     ...group,
     // Send to POST /syllabus/:uploadId/roadmaps while canGenerate is true
     uploadId: upload?.id ?? null,
-    canGenerate: Boolean(
-      upload?.geminiFileName && upload.expiresAt > new Date(),
-    ),
+    canGenerate: upload ? canGenerateFrom(upload) : false,
     roadmaps,
     subjects: detected.map((subject, index) => ({
       index,

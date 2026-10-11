@@ -44,6 +44,9 @@ Create a `.env` file in the project root:
 | `GEMINI_MODEL_DETECT`  | No       | Model for subject detection (analyze). Default `GEMINI_MODEL` |
 | `UPSTASH_REDIS_REST_URL`   | Yes  | Upstash Redis URL (rate limits shared across instances)       |
 | `UPSTASH_REDIS_REST_TOKEN` | Yes  | Upstash Redis token                                            |
+| `S3_ENDPOINT`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_BUCKET` | No (all or none) | Private S3-compatible bucket (Supabase Storage, Backblaze B2, AWS S3, Cloudflare R2) for permanent PDF storage; see `.env.example`. Without it, PDFs are kept in Gemini for ~48h only |
+| `S3_FORCE_PATH_STYLE`  | No       | Path-style bucket URLs. Default `true` (Supabase requires it)  |
+| `CLOUDINARY_URL`       | No       | `cloudinary://<api_key>:<api_secret>@<cloud_name>`. PDF storage in Cloudinary, used for new PDFs when `S3_*` isn't set. Keep it after moving to S3 so PDFs already in Cloudinary stay readable |
 | `JWT_SECRET`           | No       | Unused                                                         |
 | `GOOGLE_CLIENT_ID`     | No       | Google OAuth client id (Google sign-in not enabled yet)       |
 | `GOOGLE_CLIENT_SECRET` | No       | Google OAuth client secret                                     |
@@ -76,6 +79,7 @@ All routes below are under `/api` and require a signed-in session.
 | Method | Path                                | Description                                                               |
 | ------ | ----------------------------------- | ------------------------------------------------------------------------- |
 | POST   | `/syllabus/analyze`               | Upload a syllabus PDF (form field `pdffile`, ≤ 100 pages) and list the subjects in it |
+| GET    | `/syllabus/uploads/:uploadId/pdf` | Short-lived (15 min) link to view the uploaded PDF — `{ url, expiresAt, fileName }` (needs PDF storage) |
 | POST   | `/syllabus/:uploadId/roadmaps`    | Generate one roadmap per chosen subject — body `{ "subjectIndexes": [0, 2] }` or `{ "custom": { "name": "...", "startPage": 3, "endPage": 5 } }` |
 | GET    | `/exam-groups`                    | List exam groups (roadmaps from one multi-subject PDF) with progress, plus every subject detected in the PDF (`subjects[].roadmapId` is set once created; `uploadId` + `canGenerate` to create the rest) |
 | GET    | `/exam-groups/:examGroupId`       | Get one exam group with its roadmaps                                      |
@@ -113,7 +117,10 @@ Authentication routes are handled by better-auth under `/api/auth/*`.
    from a multi-subject PDF share an exam group. Response:
    `{ examGroupId, results: [{ index, name, group, status: "SUCCEEDED", roadmap, warnings } | { index, name, group, status: "FAILED", error }] }`.
    Each subject counts toward the roadmap generation limit (10/hour per user).
-   An expired upload returns 410; upload the PDF again (the cached analysis makes that instant).
+   With PDF storage (`S3_*`) configured, each PDF is stored permanently (once per content hash),
+   so subjects can be generated months later: when Gemini's ~48h copy is gone (or was uploaded
+   with another API key), the server re-uploads it from storage automatically. Without it, an unavailable upload
+   returns 410; upload the PDF again (the cached analysis makes that instant).
 
 Limits and the prompt version live in `src/config/syllabus.ts`.
 

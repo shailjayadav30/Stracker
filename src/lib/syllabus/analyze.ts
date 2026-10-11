@@ -4,6 +4,7 @@ import prisma from "../db.js";
 import AppError from "../error/appError.js";
 import { countPdfPages, hashPdf } from "../pdfInfo.js";
 import { deleteGeminiFile, uploadPdfToGemini } from "../geminiFiles.js";
+import { storePdf } from "../pdfStorage.js";
 import { generateStructuredResponse } from "../llmRetry.js";
 import { buildDetectPrompt } from "../prompt/detectPrompt.js";
 import { consumeAnalyzeQuota } from "../../middleware/rateLimit.js";
@@ -60,7 +61,7 @@ type AnalyzeInput = {
   res: Response;
 };
 
-// Pass 1: detect the subjects in a PDF and keep the PDF in Gemini for the generate step
+// Pass 1: detect the subjects in a PDF; keep the PDF in S3 storage (permanent) and/or Gemini (~48h)
 export async function analyzeSyllabus({ userId, pdf, fileName, res }: AnalyzeInput) {
   // Checked locally first, so rejected files cost nothing
   const pageCount = await countPdfPages(pdf);
@@ -87,14 +88,15 @@ export async function analyzeSyllabus({ userId, pdf, fileName, res }: AnalyzeInp
     await consumeAnalyzeQuota(userId, res);
   }
 
-  // Needed even on a cache hit: the generate step reads the PDF from Gemini
-  const { ref, expiresAt } = await uploadPdfToGemini(pdf, fileName);
+  // Gemini copy of the PDF: needed for detection; later generate calls can restore it from storage
+  let gemini: Awaited<ReturnType<typeof uploadPdfToGemini>> | null = null;
   try {
     if (!analysis) {
+      gemini = await uploadPdfToGemini(pdf, fileName);
       const detected = await generateStructuredResponse(
         buildDetectPrompt(pageCount),
         DetectedStructureSchema,
-        { file: ref, model },
+        { file: gemini.ref, model },
       );
       const subjects = detected.isSyllabus
         ? normalizeSubjects(detected.subjects, pageCount)
@@ -122,15 +124,24 @@ export async function analyzeSyllabus({ userId, pdf, fileName, res }: AnalyzeInp
       throw new AppError("No subjects were found in this syllabus", 422);
     }
 
+    // Permanent copy, so subjects can be generated months later (stored once per hash)
+    const storageKey = await storePdf(pdf, pdfHash);
+    // Without a stored copy, generate needs a live Gemini copy
+    if (!gemini && !storageKey) {
+      gemini = await uploadPdfToGemini(pdf, fileName);
+    }
+
     const upload = await prisma.syllabusUpload.create({
       data: {
         userId,
         pdfHash,
         pageCount,
         fileName,
-        geminiFileName: ref.name,
-        geminiFileUri: ref.uri,
-        expiresAt,
+        storageKey,
+        geminiFileName: gemini?.ref.name ?? null,
+        geminiFileUri: gemini?.ref.uri ?? null,
+        // No Gemini copy yet: generate uploads one from storage
+        expiresAt: gemini?.expiresAt ?? new Date(),
         analysisId: analysis.id,
         analysisFromCache: fromCache,
       },
@@ -138,7 +149,7 @@ export async function analyzeSyllabus({ userId, pdf, fileName, res }: AnalyzeInp
     return { upload, analysis, subjects };
   } catch (error) {
     // Nothing will reference the Gemini file, so don't keep it for 48h
-    await deleteGeminiFile(ref.name);
+    if (gemini) await deleteGeminiFile(gemini.ref.name);
     throw error;
   }
 }

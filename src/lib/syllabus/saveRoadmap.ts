@@ -18,6 +18,7 @@ type RoadmapMeta = {
   subjectGroup?: string | null;
   examGroupId?: string | null;
   promptVersion?: string | null;
+  uploadId?: string | null;
 };
 
 // Save an extracted roadmap; position keeps the syllabus order from the AI output
@@ -31,6 +32,7 @@ export function saveRoadmap(content: RoadmapContent, meta: RoadmapMeta) {
       subjectGroup: meta.subjectGroup ?? null,
       examGroupId: meta.examGroupId ?? null,
       promptVersion: meta.promptVersion ?? null,
+      uploadId: meta.uploadId ?? null,
       units: {
         create: content.units.map((unit, unitIndex) => ({
           name: unit.name,
