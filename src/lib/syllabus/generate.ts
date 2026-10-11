@@ -44,10 +44,15 @@ async function extractSubject(target: Target, file: GeminiFileRef) {
 export async function generateRoadmaps({ userId, uploadId, body, res }: GenerateInput) {
   const upload = await prisma.syllabusUpload.findFirst({
     where: { id: uploadId, userId },
-    include: { analysis: true, examGroup: true },
+    include: { analysis: true },
   });
   if (!upload || !upload.analysis) {
     throw new AppError("Upload not found", 404);
+  }
+  // Uploads from before spaces existed aren't in one
+  const { spaceId } = upload;
+  if (!spaceId) {
+    throw new AppError("Upload this PDF again from inside a space to create roadmaps from it.", 410);
   }
   const { analysis } = upload;
   const subjects = StoredSubjectsSchema.parse(analysis.subjectsJson);
@@ -91,41 +96,6 @@ export async function generateRoadmaps({ userId, uploadId, body, res }: Generate
 
   await consumeGenerationQuota(userId, targets.length, res);
 
-  // Roadmaps from a multi-subject PDF are grouped (e.g. "JEE Main 2026")
-  let examGroupId = upload.examGroup?.id ?? null;
-  // Re-uploading the same PDF (e.g. after the old upload expired) adds to its existing
-  // group instead of starting a second one; the group then points at the new upload
-  if (!examGroupId && subjects.length > 1) {
-    const existing = await prisma.examGroup.findFirst({
-      where: { userId, upload: { pdfHash: upload.pdfHash } },
-      orderBy: { createdAt: "desc" },
-      select: { id: true },
-    });
-    if (existing) {
-      await prisma.examGroup.update({
-        where: { id: existing.id },
-        data: { uploadId: upload.id },
-      });
-      examGroupId = existing.id;
-    }
-  }
-  if (!examGroupId && subjects.length > 1) {
-    const group = await prisma.examGroup.upsert({
-      where: { uploadId: upload.id },
-      create: {
-        userId,
-        uploadId: upload.id,
-        name:
-          analysis.examOrBoard ??
-          upload.fileName?.replace(/\.pdf$/i, "").trim() ??
-          "My syllabus",
-        examOrBoard: analysis.examOrBoard,
-      },
-      update: {},
-    });
-    examGroupId = group.id;
-  }
-
   const results = await mapWithConcurrency(
     targets,
     GENERATE_LIMITS.concurrency,
@@ -148,7 +118,7 @@ export async function generateRoadmaps({ userId, uploadId, body, res }: Generate
             documentType: analysis.documentType,
             examOrBoard: analysis.examOrBoard,
             subjectGroup: target.group,
-            examGroupId,
+            spaceId,
             promptVersion: PROMPT_VERSION,
             uploadId: upload.id,
           },
@@ -184,8 +154,11 @@ export async function generateRoadmaps({ userId, uploadId, body, res }: Generate
     );
   }
 
+  // Recently used spaces sort first in the space list
+  await prisma.space.update({ where: { id: spaceId }, data: { updatedAt: new Date() } });
+
   return {
-    examGroupId,
+    spaceId,
     // statusCode is only used above to pick the error status
     results: results.map((r) => {
       if (r.status === "SUCCEEDED") return r;

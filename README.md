@@ -78,14 +78,15 @@ All routes below are under `/api` and require a signed-in session.
 
 | Method | Path                                | Description                                                               |
 | ------ | ----------------------------------- | ------------------------------------------------------------------------- |
-| POST   | `/syllabus/analyze`               | Upload a syllabus PDF (form field `pdffile`, ≤ 100 pages) and list the subjects in it |
+| GET    | `/spaces`                         | List the user's spaces with `roadmapCount` and combined `progress`        |
+| POST   | `/spaces`                         | Create a space — body `{ "name": "UPSC 2027" }`                          |
+| GET    | `/spaces/:spaceId`                | A space's roadmaps and progress, plus the PDFs uploaded into it with every detected subject (`subjects[].roadmapId` is set once created; `canGenerate` to create more) |
+| PATCH  | `/spaces/:spaceId`                | Rename a space — body `{ "name": "..." }`                               |
+| DELETE | `/spaces/:spaceId`                | Delete a space and every roadmap in it                                    |
+| POST   | `/syllabus/analyze`               | Upload a syllabus PDF into a space (form fields `pdffile`, ≤ 100 pages, and `spaceId`) and list the subjects in it |
 | GET    | `/syllabus/uploads/:uploadId/pdf` | Short-lived (15 min) link to view the uploaded PDF — `{ url, expiresAt, fileName }` (needs PDF storage) |
 | POST   | `/syllabus/:uploadId/roadmaps`    | Generate one roadmap per chosen subject — body `{ "subjectIndexes": [0, 2] }` or `{ "custom": { "name": "...", "startPage": 3, "endPage": 5 } }` |
-| GET    | `/exam-groups`                    | List exam groups (roadmaps from one multi-subject PDF) with progress, plus every subject detected in the PDF (`subjects[].roadmapId` is set once created; `uploadId` + `canGenerate` to create the rest) |
-| GET    | `/exam-groups/:examGroupId`       | Get one exam group with its roadmaps                                      |
-| PATCH  | `/exam-groups/:examGroupId`       | Rename an exam group — body `{ "name": "..." }`                         |
-| DELETE | `/exam-groups/:examGroupId`       | Delete a group; `?deleteRoadmaps=true` also deletes its roadmaps         |
-| POST   | `/uploadfile`                     | Legacy: upload a PDF and generate a roadmap for its first subject        |
+| POST   | `/uploadfile`                     | Legacy: upload a PDF and generate a roadmap for its first subject (optional form field `spaceId`, otherwise "My roadmaps") |
 | GET    | `/roadmap`                        | List the user's roadmaps                                                  |
 | GET    | `/roadmap/isfollowing`            | List roadmaps the user follows                                            |
 | GET    | `/roadmap/:roadmapId`             | Get one roadmap with its units, topics and subtopics                      |
@@ -104,18 +105,22 @@ Authentication routes are handled by better-auth under `/api/auth/*`.
 
 ### Syllabus flow: analyze → pick → generate
 
+Every roadmap lives in a **space** the user creates and names (e.g. "UPSC 2027"). PDFs are
+uploaded into a space, and only the subjects the user picks become roadmaps there.
+
 1. **Analyze.** `POST /syllabus/analyze` checks the page count locally, uploads the PDF to
    the Gemini Files API (kept ~48 hours) and detects its subjects. Results are cached by the
    PDF's SHA-256, so a PDF that anyone analyzed before returns instantly and doesn't count
    toward the daily analysis limit (10/day per user). Response:
-   `{ uploadId, expiresAt, pageCount, fromCache, documentType, examOrBoard, language, subjects: [{ index, name, group, startPage, endPage }] }`.
+   `{ uploadId, expiresAt, pageCount, fromCache, documentType, examOrBoard, language, subjects: [{ index, name, group, startPage, endPage, roadmapId }] }`
+   (`roadmapId` is set when the space already has a roadmap for that subject).
    Not a syllabus → 422.
 2. **Pick.** If there is one subject, the app can generate it directly; otherwise it shows
    the list (grouped by `group`, e.g. "Semester 3", "Prelims").
 3. **Generate.** `POST /syllabus/:uploadId/roadmaps` extracts each chosen subject (up to 10,
-   3 in parallel) into its own roadmap, using the subject's page range as a hint. Roadmaps
-   from a multi-subject PDF share an exam group. Response:
-   `{ examGroupId, results: [{ index, name, group, status: "SUCCEEDED", roadmap, warnings } | { index, name, group, status: "FAILED", error }] }`.
+   3 in parallel) into its own roadmap in the upload's space, using the subject's page range
+   as a hint. Response:
+   `{ spaceId, results: [{ index, name, group, status: "SUCCEEDED", roadmap, warnings } | { index, name, group, status: "FAILED", error }] }`.
    Each subject counts toward the roadmap generation limit (10/hour per user).
    With PDF storage (`S3_*`) configured, each PDF is stored permanently (once per content hash),
    so subjects can be generated months later: when Gemini's ~48h copy is gone (or was uploaded

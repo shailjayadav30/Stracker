@@ -56,13 +56,15 @@ export function normalizeSubjects(
 
 type AnalyzeInput = {
   userId: string;
+  // Already checked to belong to the user
+  spaceId: string;
   pdf: Buffer;
   fileName: string;
   res: Response;
 };
 
 // Pass 1: detect the subjects in a PDF; keep the PDF in S3 storage (permanent) and/or Gemini (~48h)
-export async function analyzeSyllabus({ userId, pdf, fileName, res }: AnalyzeInput) {
+export async function analyzeSyllabus({ userId, spaceId, pdf, fileName, res }: AnalyzeInput) {
   // Checked locally first, so rejected files cost nothing
   const pageCount = await countPdfPages(pdf);
   if (pageCount > UPLOAD_LIMITS.maxPages) {
@@ -134,6 +136,7 @@ export async function analyzeSyllabus({ userId, pdf, fileName, res }: AnalyzeInp
     const upload = await prisma.syllabusUpload.create({
       data: {
         userId,
+        spaceId,
         pdfHash,
         pageCount,
         fileName,

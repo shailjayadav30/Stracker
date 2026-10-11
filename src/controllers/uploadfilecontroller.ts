@@ -7,6 +7,8 @@ import { buildUserPrompt } from "../lib/prompt/userPrompt.js";
 import { getUserId } from "../middleware/authmiddleware.js";
 import { assertPdfUpload } from "../lib/pdfInfo.js";
 import { saveRoadmap } from "../lib/syllabus/saveRoadmap.js";
+import { assertSpace, getDefaultSpaceId } from "../lib/spaces.js";
+import { uploadFileBodySchema } from "../validationSchema/requestSchemas.js";
 
 const MAX_PROMPT_TEXT_CHARS = 20_000;
 
@@ -30,6 +32,8 @@ export const uploadfile = async (req: Request, res: Response) => {
 
   // 1. File validation
   const pdfBuffer = assertPdfUpload(req.file);
+  const { spaceId: requestedSpaceId } = uploadFileBodySchema.parse(req.body ?? {});
+  if (requestedSpaceId) await assertSpace(userId, requestedSpaceId);
 
   // 2. Extract PDF text
   let rawText: string;
@@ -68,7 +72,7 @@ export const uploadfile = async (req: Request, res: Response) => {
   // 4. Save to database
   const createdRoadmap = await saveRoadmap(
     { name: roadmapName, units: roadmapData.units },
-    { userId },
+    { userId, spaceId: requestedSpaceId ?? (await getDefaultSpaceId(userId)) },
   );
 
   res.status(201).json({
