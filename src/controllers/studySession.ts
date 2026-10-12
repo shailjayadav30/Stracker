@@ -229,6 +229,8 @@ export const getProgress = async (req: Request, res: Response) => {
     };
   });
 
+  const unitsFor = await sessionBreakdown(recent);
+
   res.status(200).json({
     today: series.at(-1),
     days: series,
@@ -237,7 +239,77 @@ export const getProgress = async (req: Request, res: Response) => {
     studyDays: [...studyDays.keys()].sort(),
     recentSessions: recent.map((s) => {
       const { topicIds: _t, subTopicIds: _s, running: _r, ...session } = toApiSession(s, now);
-      return session;
+      return { ...session, units: unitsFor(s) };
     }),
   });
 };
+
+type SessionWithItems = {
+  items: { kind: "TOPIC" | "SUBTOPIC"; itemId: string; name: string }[];
+};
+
+type UnitBreakdown = {
+  name: string | null; // null: the topic/subtopic was deleted since
+  topics: string[];
+  subTopics: { name: string; topicName: string | null }[];
+};
+
+// What each session completed, grouped by unit. Items only store their own id and name,
+// so units (and a subtopic's topic) are looked up now; deleted ones keep their name.
+async function sessionBreakdown(sessions: SessionWithItems[]) {
+  const items = sessions.flatMap((s) => s.items);
+  const topicIds = items.filter((i) => i.kind === "TOPIC").map((i) => i.itemId);
+  const subTopicIds = items.filter((i) => i.kind === "SUBTOPIC").map((i) => i.itemId);
+
+  const [topics, subTopics] = await Promise.all([
+    topicIds.length
+      ? prisma.topic.findMany({
+          where: { id: { in: topicIds } },
+          select: { id: true, unit: { select: { name: true, position: true } } },
+        })
+      : [],
+    subTopicIds.length
+      ? prisma.subTopic.findMany({
+          where: { id: { in: subTopicIds } },
+          select: {
+            id: true,
+            topic: { select: { name: true, unit: { select: { name: true, position: true } } } },
+          },
+        })
+      : [],
+  ]);
+  const topicUnit = new Map(topics.map((t) => [t.id, t.unit]));
+  const subTopicInfo = new Map(subTopics.map((s) => [s.id, s.topic]));
+
+  return (session: SessionWithItems): UnitBreakdown[] => {
+    // Units in syllabus order; anything whose unit is gone goes last
+    const units = new Map<string, UnitBreakdown & { position: number }>();
+    const unitFor = (unit: { name: string; position: number } | undefined) => {
+      const key = unit ? `${unit.position}\u0000${unit.name}` : "";
+      let entry = units.get(key);
+      if (!entry) {
+        entry = {
+          name: unit?.name ?? null,
+          position: unit?.position ?? Number.MAX_SAFE_INTEGER,
+          topics: [],
+          subTopics: [],
+        };
+        units.set(key, entry);
+      }
+      return entry;
+    };
+
+    for (const item of session.items) {
+      if (item.kind === "TOPIC") {
+        unitFor(topicUnit.get(item.itemId)).topics.push(item.name);
+      } else {
+        const topic = subTopicInfo.get(item.itemId);
+        unitFor(topic?.unit).subTopics.push({ name: item.name, topicName: topic?.name ?? null });
+      }
+    }
+
+    return [...units.values()]
+      .sort((a, b) => a.position - b.position)
+      .map(({ position: _position, ...unit }) => unit);
+  };
+}
