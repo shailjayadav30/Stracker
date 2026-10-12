@@ -7,6 +7,8 @@ type Tx = Prisma.TransactionClient;
 export const MAX_SESSION_SECONDS = 12 * 60 * 60;
 // A day counts toward the streak once this much was studied in it
 export const STREAK_MIN_SECONDS = 60;
+// Shorter sessions (e.g. started and stopped by accident) aren't saved
+export const MIN_SESSION_SECONDS = 60;
 
 export const OPEN_STATUSES = ["ACTIVE", "PAUSED"] as const;
 

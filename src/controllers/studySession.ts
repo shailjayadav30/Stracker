@@ -9,6 +9,7 @@ import {
   findOpenSession,
   getSession,
   localDay,
+  MIN_SESSION_SECONDS,
   OPEN_STATUSES,
   sessionSelect,
   STREAK_MIN_SECONDS,
@@ -120,12 +121,19 @@ export const endSession = async (req: Request, res: Response) => {
   const { timeZone } = endSessionBodySchema.parse(req.body ?? {});
 
   const now = new Date();
+  const studied = elapsedSeconds(session, now);
+  if (studied < MIN_SESSION_SECONDS) {
+    throw new AppError(
+      "Sessions under 1 minute aren't saved. Keep studying, or discard this one.",
+      422,
+    );
+  }
   const today = localDay(now, timeZone);
   const updated = await prisma.studySession.update({
     where: { id: session.id },
     data: {
       status: "COMPLETED",
-      activeSeconds: elapsedSeconds(session, now),
+      activeSeconds: studied,
       resumedAt: null,
       endedAt: now,
       endedOnDay: today,
