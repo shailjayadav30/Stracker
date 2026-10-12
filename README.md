@@ -107,7 +107,7 @@ All routes below are under `/api` and require a signed-in session.
 | POST   | `/study-sessions`                 | Start a stopwatch session on a roadmap — body `{ "roadmapId": "..." }` (one open session at a time; 409 otherwise) |
 | POST   | `/study-sessions/:sessionId/pause` | Pause the stopwatch                                                     |
 | POST   | `/study-sessions/:sessionId/resume` | Resume it                                                              |
-| POST   | `/study-sessions/:sessionId/end`  | End and save it — body `{ "timeZone": "Asia/Kolkata" }`; returns the summary and `streak` |
+| POST   | `/study-sessions/:sessionId/end`  | End and save it — body `{ "timeZone": "Asia/Kolkata" }`; returns the summary and `streak` (422 if under 1 minute: keep it going or discard it) |
 | DELETE | `/study-sessions/:sessionId`      | Discard an open session                                                   |
 | GET    | `/progress?timeZone=&days=7`      | Today's totals, the last `days` days, `streak` (`current`, `longest`, `studiedToday`), `studyDays` and recent sessions |
 
