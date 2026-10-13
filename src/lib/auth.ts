@@ -22,6 +22,19 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
   },
+  // "Continue with Google" (OAuth web client). Enabled only when both env vars are set.
+  // Google must allow the redirect URI `${BETTER_AUTH_URL}/api/auth/callback/google`.
+  socialProviders:
+    env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET
+      ? {
+          google: {
+            clientId: env.GOOGLE_CLIENT_ID,
+            clientSecret: env.GOOGLE_CLIENT_SECRET,
+            // Always let the user pick an account (students often have several)
+            prompt: "select_account",
+          },
+        }
+      : {},
   secret: env.BETTER_AUTH_SECRET,
   baseURL: env.BETTER_AUTH_URL,
 });
