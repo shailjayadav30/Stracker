@@ -47,7 +47,6 @@ Create a `.env` file in the project root:
 | `S3_ENDPOINT`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_BUCKET` | No (all or none) | Private S3-compatible bucket (Supabase Storage, Backblaze B2, AWS S3, Cloudflare R2) for permanent PDF storage; see `.env.example`. Without it, PDFs are kept in Gemini for ~48h only |
 | `S3_FORCE_PATH_STYLE`  | No       | Path-style bucket URLs. Default `true` (Supabase requires it)  |
 | `CLOUDINARY_URL`       | No       | `cloudinary://<api_key>:<api_secret>@<cloud_name>`. PDF storage in Cloudinary, used for new PDFs when `S3_*` isn't set. Keep it after moving to S3 so PDFs already in Cloudinary stay readable |
-| `JWT_SECRET`           | No       | Unused                                                         |
 | `GOOGLE_CLIENT_ID`     | No       | Google OAuth client id (Google sign-in not enabled yet)       |
 | `GOOGLE_CLIENT_SECRET` | No       | Google OAuth client secret                                     |
 | `ALLOW_EXPO_GO`        | No       | `"true"` to trust Expo Go URLs during development. Default `false` |
