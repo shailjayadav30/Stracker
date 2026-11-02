@@ -7,25 +7,9 @@ import { buildUserPrompt } from "../lib/prompt/userPrompt.js";
 import { getUserId } from "../middleware/authmiddleware.js";
 import { assertPdfUpload } from "../lib/pdfInfo.js";
 import { saveRoadmap } from "../lib/syllabus/saveRoadmap.js";
+import { capPromptText } from "../lib/promptText.js";
 import { assertSpace, getDefaultSpaceId } from "../lib/spaces.js";
 import { uploadFileBodySchema } from "../validationSchema/requestSchemas.js";
-
-const MAX_PROMPT_TEXT_CHARS = 20_000;
-
-// Cap the text sent to the LLM. Cut at a line break when one is reasonably close to the
-// limit, so the last syllabus line isn't sent half-finished.
-function capPromptText(text: string) {
-  if (text.length <= MAX_PROMPT_TEXT_CHARS) {
-    return { promptText: text, truncated: false };
-  }
-  const hardCut = text.slice(0, MAX_PROMPT_TEXT_CHARS);
-  const lastNewline = hardCut.lastIndexOf("\n");
-  const promptText =
-    lastNewline > MAX_PROMPT_TEXT_CHARS * 0.8
-      ? hardCut.slice(0, lastNewline)
-      : hardCut;
-  return { promptText, truncated: true };
-}
 
 export const uploadfile = async (req: Request, res: Response) => {
   const userId = getUserId(req);

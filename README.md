@@ -71,6 +71,20 @@ npm run build               # prisma generate + tsc
 npm start                   # node dist/index.js
 ```
 
+Tests (Vitest, in `tests/`; no database or API keys needed):
+
+```bash
+npm test                    # run once
+npm run test:watch          # re-run on changes
+```
+
+They cover the logic that's easy to break without noticing: streaks, local-day/time-zone
+handling, the study timer, cleaning up the AI's detected subjects and prompt text, and
+the per-unit session breakdown. Pure logic lives in database-free modules
+(`src/lib/streak.ts`, `src/lib/syllabus/subjects.ts`, `src/lib/promptText.ts`,
+`src/lib/sessionBreakdown.ts`) so tests can import it directly. GitHub Actions
+(`.github/workflows/ci.yml`) runs the type-check and tests on every pull request into `main`.
+
 ## API
 
 All routes below are under `/api` and require a signed-in session.

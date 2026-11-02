@@ -1,5 +1,4 @@
 import type { Response } from "express";
-import z from "zod";
 import prisma from "../db.js";
 import AppError from "../error/appError.js";
 import { countPdfPages, hashPdf } from "../pdfInfo.js";
@@ -15,18 +14,9 @@ import {
 } from "../../validationSchema/detectedSchema.js";
 import type { DocumentType } from "../../generated/prisma/client.js";
 
-// Shape of SyllabusAnalysis.subjectsJson
-export const StoredSubjectsSchema = z.array(
-  z.object({
-    name: z.string(),
-    group: z.string().nullable(),
-    startPage: z.number().int(),
-    endPage: z.number().int(),
-  }),
-);
-export type StoredSubject = z.infer<typeof StoredSubjectsSchema>[number];
-
-const MAX_SUBJECTS = 200;
+// Subject schema and clean-up live in subjects.ts (testable without a database)
+import { normalizeSubjects, StoredSubjectsSchema } from "./subjects.js";
+export { normalizeSubjects, StoredSubjectsSchema, type StoredSubject } from "./subjects.js";
 
 export const toDocumentType: Record<DetectedStructure["documentType"], DocumentType> = {
   school: "SCHOOL",
@@ -35,24 +25,6 @@ export const toDocumentType: Record<DetectedStructure["documentType"], DocumentT
   professional: "PROFESSIONAL",
   other: "OTHER",
 };
-
-// The model's page numbers can be off: keep them inside the PDF and in order
-export function normalizeSubjects(
-  subjects: DetectedStructure["subjects"],
-  pageCount: number,
-): StoredSubject[] {
-  const clamp = (page: number) => Math.min(Math.max(page, 1), pageCount);
-  return subjects.slice(0, MAX_SUBJECTS).map((s) => {
-    const a = clamp(s.startPage);
-    const b = clamp(s.endPage);
-    return {
-      name: s.name.trim(),
-      group: s.group?.trim() || null,
-      startPage: Math.min(a, b),
-      endPage: Math.max(a, b),
-    };
-  });
-}
 
 type AnalyzeInput = {
   userId: string;

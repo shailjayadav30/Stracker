@@ -36,7 +36,8 @@
     "@types/pg": "^8.21.0",
     "husky": "^9.1.7",
     "tsx": "^4.23.12",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.12"
   },
   "scripts": {
     "start": "node dist/index.js",
@@ -44,7 +45,9 @@
     "build": "prisma generate && tsc",
     "postinstall": "prisma generate",
     "prepare": "node .husky/install.mjs",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "keywords": [],
   "author": "",
