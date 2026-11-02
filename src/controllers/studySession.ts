@@ -49,27 +49,38 @@ export const startSession = async (req: Request, res: Response) => {
   });
   if (!roadmap) throw new AppError("Roadmap not found", 404);
 
-  const open = await findOpenSession(userId);
-  if (open) {
-    throw new AppError(
-      open.roadmapId === roadmapId
-        ? "You're already studying this subject"
-        : `You're studying ${open.roadmapName}. End that session first.`,
-      409,
-    );
-  }
-
   const now = new Date();
-  const session = await prisma.studySession.create({
-    data: {
-      userId,
-      roadmapId,
-      roadmapName: roadmap.name,
-      status: "ACTIVE",
-      startedAt: now,
-      resumedAt: now,
-    },
-    select: sessionSelect,
+  // Check-then-create under a per-user lock, so two starts arriving together (a double
+  // tap, two phones) can't both see "no open session" and create two timers. The lock
+  // is only for this user and is released when the transaction ends, even on errors.
+  const session = await prisma.$transaction(async (tx) => {
+    // $executeRaw, not $queryRaw: the lock function returns `void`, which Prisma can't read
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`study-session:${userId}`}))`;
+
+    const open = await tx.studySession.findFirst({
+      where: { userId, status: { in: [...OPEN_STATUSES] } },
+      select: { roadmapId: true, roadmapName: true },
+    });
+    if (open) {
+      throw new AppError(
+        open.roadmapId === roadmapId
+          ? "You're already studying this subject"
+          : `You're studying ${open.roadmapName}. End that session first.`,
+        409,
+      );
+    }
+
+    return tx.studySession.create({
+      data: {
+        userId,
+        roadmapId,
+        roadmapName: roadmap.name,
+        status: "ACTIVE",
+        startedAt: now,
+        resumedAt: now,
+      },
+      select: sessionSelect,
+    });
   });
 
   res.status(201).json({ session: toApiSession(session, now) });
