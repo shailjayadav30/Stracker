@@ -15,6 +15,7 @@ import {
   STREAK_MIN_SECONDS,
   toApiSession,
 } from "../lib/studySession.js";
+import { groupItemsByUnit } from "../lib/sessionBreakdown.js";
 import {
   endSessionBodySchema,
   progressQuerySchema,
@@ -49,27 +50,38 @@ export const startSession = async (req: Request, res: Response) => {
   });
   if (!roadmap) throw new AppError("Roadmap not found", 404);
 
-  const open = await findOpenSession(userId);
-  if (open) {
-    throw new AppError(
-      open.roadmapId === roadmapId
-        ? "You're already studying this subject"
-        : `You're studying ${open.roadmapName}. End that session first.`,
-      409,
-    );
-  }
-
   const now = new Date();
-  const session = await prisma.studySession.create({
-    data: {
-      userId,
-      roadmapId,
-      roadmapName: roadmap.name,
-      status: "ACTIVE",
-      startedAt: now,
-      resumedAt: now,
-    },
-    select: sessionSelect,
+  // Check-then-create under a per-user lock, so two starts arriving together (a double
+  // tap, two phones) can't both see "no open session" and create two timers. The lock
+  // is only for this user and is released when the transaction ends, even on errors.
+  const session = await prisma.$transaction(async (tx) => {
+    // $executeRaw, not $queryRaw: the lock function returns `void`, which Prisma can't read
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`study-session:${userId}`}))`;
+
+    const open = await tx.studySession.findFirst({
+      where: { userId, status: { in: [...OPEN_STATUSES] } },
+      select: { roadmapId: true, roadmapName: true },
+    });
+    if (open) {
+      throw new AppError(
+        open.roadmapId === roadmapId
+          ? "You're already studying this subject"
+          : `You're studying ${open.roadmapName}. End that session first.`,
+        409,
+      );
+    }
+
+    return tx.studySession.create({
+      data: {
+        userId,
+        roadmapId,
+        roadmapName: roadmap.name,
+        status: "ACTIVE",
+        startedAt: now,
+        resumedAt: now,
+      },
+      select: sessionSelect,
+    });
   });
 
   res.status(201).json({ session: toApiSession(session, now) });
@@ -248,12 +260,6 @@ type SessionWithItems = {
   items: { kind: "TOPIC" | "SUBTOPIC"; itemId: string; name: string }[];
 };
 
-type UnitBreakdown = {
-  name: string | null; // null: the topic/subtopic was deleted since
-  topics: string[];
-  subTopics: { name: string; topicName: string | null }[];
-};
-
 // What each session completed, grouped by unit. Items only store their own id and name,
 // so units (and a subtopic's topic) are looked up now; deleted ones keep their name.
 async function sessionBreakdown(sessions: SessionWithItems[]) {
@@ -281,35 +287,5 @@ async function sessionBreakdown(sessions: SessionWithItems[]) {
   const topicUnit = new Map(topics.map((t) => [t.id, t.unit]));
   const subTopicInfo = new Map(subTopics.map((s) => [s.id, s.topic]));
 
-  return (session: SessionWithItems): UnitBreakdown[] => {
-    // Units in syllabus order; anything whose unit is gone goes last
-    const units = new Map<string, UnitBreakdown & { position: number }>();
-    const unitFor = (unit: { name: string; position: number } | undefined) => {
-      const key = unit ? `${unit.position}\u0000${unit.name}` : "";
-      let entry = units.get(key);
-      if (!entry) {
-        entry = {
-          name: unit?.name ?? null,
-          position: unit?.position ?? Number.MAX_SAFE_INTEGER,
-          topics: [],
-          subTopics: [],
-        };
-        units.set(key, entry);
-      }
-      return entry;
-    };
-
-    for (const item of session.items) {
-      if (item.kind === "TOPIC") {
-        unitFor(topicUnit.get(item.itemId)).topics.push(item.name);
-      } else {
-        const topic = subTopicInfo.get(item.itemId);
-        unitFor(topic?.unit).subTopics.push({ name: item.name, topicName: topic?.name ?? null });
-      }
-    }
-
-    return [...units.values()]
-      .sort((a, b) => a.position - b.position)
-      .map(({ position: _position, ...unit }) => unit);
-  };
+  return (session: SessionWithItems) => groupItemsByUnit(session.items, topicUnit, subTopicInfo);
 }
